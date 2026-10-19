@@ -7,3 +7,13 @@ build/
 imgui.ini
 .decompmatch/
 cmake-build-*/
+
+# Quest / Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+# Local game media (never commit)
+*.bin
+*.cue
+00_Cover.jpeg

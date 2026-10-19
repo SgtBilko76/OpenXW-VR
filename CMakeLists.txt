@@ -892,6 +892,7 @@ set(XW_APP_SOURCES
     src/xw_app/main.c
     src/xw_app/application.c
     src/xw_app/host_config.c
+    src/xw_vr/xw_vr.c
 )
 set(XW_APP_HEADERS
     src/xw_app/settings/audio_page.h
@@ -958,7 +959,8 @@ set(XW_REMASTER_SOURCES
     src/xw_remaster/flight.c
     src/xw_remaster/xw_remaster.c
     src/xw_remaster/view_mode.c
-    src/xw_remaster/presented_frame.c)
+    src/xw_remaster/presented_frame.c
+    src/xw_remaster/vr_stereo.c)
 set(XW_REMASTER_HEADERS
     src/xw_remaster/config.h
     src/xw_remaster/hud_assets.h
@@ -1023,10 +1025,19 @@ aeron_compile_hlsl(XW_SHADER_OUTPUTS "${CMAKE_BINARY_DIR}/shaders" ${XW_SHADER_S
 add_custom_target(xw_shaders DEPENDS ${XW_SHADER_OUTPUTS})
 add_dependencies(xw_remaster xw_shaders)
 
-add_executable(xw ${XW_APP_SOURCES})
-set_target_properties(xw PROPERTIES
-    OUTPUT_NAME "OpenXW"
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<0:>")
+if(ANDROID)
+    # Quest: SDLActivity loads the game as libmain.so and calls SDL_main().
+    add_library(xw SHARED ${XW_APP_SOURCES})
+    set_target_properties(xw PROPERTIES
+        OUTPUT_NAME "main"
+        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<0:>")
+else()
+    add_executable(xw ${XW_APP_SOURCES})
+    set_target_properties(xw PROPERTIES
+        OUTPUT_NAME "OpenXW"
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<0:>")
+endif()
+target_include_directories(xw PRIVATE "${CMAKE_SOURCE_DIR}/third_party/openxr/include")
 target_link_libraries(xw PRIVATE xw_remaster)
 if(WIN32)
     set_target_properties(xw PROPERTIES WIN32_EXECUTABLE TRUE)

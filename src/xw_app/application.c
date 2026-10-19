@@ -12,6 +12,7 @@
 #include "xw_runtime/runtime/presentation.h"
 #include "xw_runtime/snapshot/render_snapshot.h"
 #include "xw_runtime/storage/storage.h"
+#include "xw_vr/xw_vr.h"
 #include <aeron/log.h>
 #include <stdio.h>
 
@@ -118,6 +119,8 @@ int XwApplication_Run(const XwLaunchOptions* options) {
 		return success ? 0 : 1;
 	}
 	XwHostConfig_InitAeron(options, &config);
+	/* Quest: present through OpenXR instead of the Android window. */
+	XwVr_Install();
 	if (!Aeron_Init(&config)) {
 		Aeron_Shutdown();
 		return 1;

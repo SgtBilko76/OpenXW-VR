@@ -1,0 +1,78 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Native code is built outside Gradle by tools/quest/build-native.sh, which
+// stages libmain.so/libSDL3.so plus the runtime resources and SPIR-V shaders
+// under build/quest/. Gradle only packages them.
+def questOut = file('../../build/quest')
+
+android {
+    namespace 'com.bilko.openxwvr'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.bilko.openxwvr'
+        minSdk 29
+        targetSdk 32
+        versionCode 1
+        versionName '0.1.0-beta'
+        ndk {
+            abiFilters 'arm64-v8a'
+        }
+    }
+
+    signingConfigs {
+        debug {
+            storeFile file(System.getProperty('user.home') + '/.android/debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
+
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+            debuggable true
+        }
+        release {
+            signingConfig signingConfigs.debug
+            debuggable false
+            minifyEnabled false
+        }
+    }
+
+    sourceSets {
+        main {
+            jniLibs.srcDirs = [new File(questOut, 'jniLibs')]
+            assets.srcDirs = [new File(questOut, 'runtime')]
+        }
+    }
+
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging true
+        }
+    }
+
+    androidResources {
+        // SPIR-V and YAML must stay byte-exact and seekable inside the APK.
+        noCompress += ['spv', 'yaml', 'ktx2']
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+}
+
+dependencies {
+    // Khronos OpenXR loader: SDL dlopens libopenxr_loader.so for its GPU XR path.
+    implementation 'org.khronos.openxr:openxr_loader_for_android:1.1.48'
+}
