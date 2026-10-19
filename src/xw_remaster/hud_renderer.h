@@ -9,5 +9,7 @@ bool XwHudRenderer_PrepareWorldMarkers(AeronCommandBuffer* cmd, const XwRenderSn
 void XwHudRenderer_DrawWorldMarkers(AeronCommandBuffer* cmd, AeronRenderPass* pass,
 									AeronRenderTarget* target);
 void XwHudRenderer_Draw(AeronCommandBuffer* cmd, AeronRenderPass* pass, AeronRenderTarget* target);
+/* VR 3D cockpit: omit the 2D cockpit art (instruments and text stay). */
+void XwHudRenderer_SetSkipBase(bool skip);
 void XwHudRenderer_Shutdown(void);
 #endif

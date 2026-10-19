@@ -58,7 +58,7 @@ android {
 
     androidResources {
         // SPIR-V and YAML must stay byte-exact and seekable inside the APK.
-        noCompress += ['spv', 'yaml', 'ktx2']
+        noCompress += ['spv', 'yaml', 'ktx2', 'glb']
     }
 
     compileOptions {

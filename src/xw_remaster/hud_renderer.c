@@ -10,6 +10,7 @@ typedef struct HudKey {
 	XwRenderView view;
 	XwSnapTargetBox target;
 	int width, height;
+	bool no_base;
 } HudKey;
 
 typedef struct Ordered {
@@ -20,6 +21,10 @@ typedef struct Ordered {
 static AeronDrawList2D *list, *markers;
 static HudKey prepared;
 static bool ready, valid;
+/* VR 3D cockpit on: draw instruments and text without the 2D cockpit art. */
+static bool skip_base;
+
+void XwHudRenderer_SetSkipBase(bool skip) { skip_base = skip; }
 void XwHudDraw_Cross(const XwHudDraw* draw);
 
 static int Compare(const void* a, const void* b) {
@@ -78,7 +83,8 @@ bool XwHudRenderer_Prepare(const XwRenderSnapshot* snapshot, const XwRenderView*
 				   .assets = XwHudAssets_Generation(),
 				   .target = snapshot->target_box,
 				   .width = width,
-				   .height = height };
+				   .height = height,
+				   .no_base = skip_base };
 	if (view)
 		key.view = *view;
 	if (valid && !memcmp(&key, &prepared, sizeof key)) {
@@ -106,7 +112,7 @@ bool XwHudRenderer_Prepare(const XwRenderSnapshot* snapshot, const XwRenderView*
 		draw.list = markers;
 	XwHudDraw_Target(&draw, view);
 	draw.list = list;
-	if (!XwHudDraw_Base(&draw) || !XwHudDraw_Instruments(&draw) || !Panes(&draw))
+	if ((!skip_base && !XwHudDraw_Base(&draw)) || !XwHudDraw_Instruments(&draw) || !Panes(&draw))
 		return false;
 	XwHudDraw_Cross(&draw);
 	AeronCommandBuffer* cmd = Aeron_AcquireCommandBuffer();

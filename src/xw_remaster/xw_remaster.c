@@ -8,7 +8,10 @@
 #include "xw_remaster/hud_renderer.h"
 #include "xw_remaster/presented_frame.h"
 #include "xw_remaster/view_mode.h"
+#include "xw_remaster/vr_cockpit.h"
 #include "xw_remaster/vr_stereo.h"
+#include "xw_runtime/runtime/port.h"
+#include <stdlib.h>
 #include "xw_runtime/runtime/flight_loading.h"
 #include "xw_runtime/snapshot/render_snapshot.h"
 #include <aeron/aeron.h>
@@ -126,6 +129,11 @@ void XwRemaster_Frame(int32_t delta_us) {
 		Aeron_LogDebug("xw.remaster", "Flight renderer prepared in %.1f ms",
 					   (double)(Aeron_NowUs() - started) / 1000.0);
 	}
+	/* VR 3D cockpit (stereo flight, or the desktop preview): no 2D art. */
+	bool cockpit3d = snapshot && XwVrCockpit_Select(snapshot) >= 0 &&
+					 ((XwRemasterVr_PublishedFrame() && !snapshot->paused && !XwPort_SettingsOpen()) ||
+					  getenv("OPENXW_VR_COCKPIT_FLAT"));
+	XwHudRenderer_SetSkipBase(cockpit3d);
 	status.hud_prepared = XwHudRenderer_Prepare(status.view_prepared ? snapshot : NULL,
 												status.view_prepared ? &frame->view : NULL, width, height);
 	if (Aeron_FatalErrorRequested())

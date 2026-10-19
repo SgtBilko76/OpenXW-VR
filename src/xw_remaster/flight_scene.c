@@ -10,6 +10,7 @@
 #include "xw_remaster/lighting.h"
 #include "xw_remaster/sky.h"
 #include "xw_remaster/special_world.h"
+#include "xw_remaster/vr_cockpit.h"
 #include "xw_remaster/vr_stereo.h"
 #include "xw_runtime/runtime/port.h"
 #include "xw_runtime/runtime/presentation.h"
@@ -204,6 +205,7 @@ static bool FrameVr(const XwRenderSnapshot* s, const XwPreparedFlight* frame, co
 	const int eye_w = (int)((float)vr->eyes[0].target_width * XW_VR_EYE_SCALE) & ~1;
 	const int eye_h = (int)((float)vr->eyes[0].target_height * XW_VR_EYE_SCALE) & ~1;
 	const int msaa = XwRemasterConfig_Effective()->msaa_samples;
+	const int cockpit = XwVrCockpit_Select(s);
 	XwFlightPipeline_SetDirect(0, flat_w, flat_h);
 	if (!Ensure(eye_w, eye_h, msaa) || !XwEngineGlows_Prepare())
 		return Fail(key);
@@ -232,8 +234,12 @@ static bool FrameVr(const XwRenderSnapshot* s, const XwPreparedFlight* frame, co
 				 XwSpecialWorld_Prepare(cmd, scene, s, &eye_frame, true) &&
 				 XwHudRenderer_PrepareWorldMarkers(cmd, s, &eye_frame.view, scene);
 		}
-		if (ok)
+		if (ok) {
+			/* Seat-fixed 3D cockpit around the game (body) camera. */
+			if (cockpit >= 0)
+				XwVrCockpit_Add(cmd, scene, cockpit, &frame->view);
 			AeronScene_SetPassHook(scene, AERON_SCENE_HOOK_AFTER_TRANSPARENT, WorldMarkers, scene);
+		}
 		if (ok) {
 			/* The second eye reuses the first eye's shadow cascades. */
 			AeronScene_SetDirectionalShadowReuse(scene, e > 0);
@@ -355,6 +361,9 @@ bool XwFlightScene_Frame(const XwRenderSnapshot* s, const XwPreparedFlight* fram
 		Aeron_CancelCommandBuffer(cmd);
 		return Fail(key);
 	}
+	/* Desktop preview of the VR cockpits: OPENXW_VR_COCKPIT_FLAT=1. */
+	if (getenv("OPENXW_VR_COCKPIT_FLAT"))
+		XwVrCockpit_Add(cmd, scene, XwVrCockpit_Select(s), &frame->view);
 	AeronScene_SetPassHook(scene, AERON_SCENE_HOOK_AFTER_TRANSPARENT, WorldMarkers, scene);
 	if (!XwFlightPipeline_Finish(cmd, scene, frame)) {
 		Aeron_CancelCommandBuffer(cmd);
@@ -380,6 +389,7 @@ const XwFlightOutput* XwFlightScene_Output(void) {
 }
 
 void XwFlightScene_Shutdown(void) {
+	XwVrCockpit_Shutdown();
 	XwSpecialWorld_Shutdown();
 	XwDosScene_Shutdown();
 	XwSky_Shutdown();

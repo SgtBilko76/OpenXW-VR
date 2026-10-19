@@ -3,6 +3,7 @@
 #include "xw_app/settings/settings.h"
 #include "xw_app/setup.h"
 #include "xw_app/ui.h"
+#include "xw_app/test_driver.h"
 #include "xw_app/vr_keyboard.h"
 #include "xw_remaster/xw_remaster.h"
 #include "xw_runtime/config/config.h"
@@ -27,6 +28,7 @@ static uint64_t XwApplication_PresentationIntervalUs(void) {
 static int XwApplication_FrameLoop(void) {
 	static AeronInputSnapshot resized_input;
 	while (!XwPort_ShouldQuit()) {
+		XwTestDriver_Frame();
 		int32_t delta_us = Aeron_BeginFrame();
 		if (XwPort_ShouldQuit())
 			break;
@@ -154,6 +156,7 @@ int XwApplication_Run(const XwLaunchOptions* options) {
 		goto cleanup;
 	}
 	XwVrKeyboard_Init(&ui, vr_active != 0);
+	XwTestDriver_Init();
 	exit_code = XwApplication_FrameLoop();
 cleanup:
 	XwSettingsMenu_FlushForExit();

@@ -893,6 +893,7 @@ set(XW_APP_SOURCES
     src/xw_app/application.c
     src/xw_app/host_config.c
     src/xw_app/vr_keyboard.c
+    src/xw_app/test_driver.c
     src/xw_vr/xw_vr.c
 )
 set(XW_APP_HEADERS
@@ -961,7 +962,8 @@ set(XW_REMASTER_SOURCES
     src/xw_remaster/xw_remaster.c
     src/xw_remaster/view_mode.c
     src/xw_remaster/presented_frame.c
-    src/xw_remaster/vr_stereo.c)
+    src/xw_remaster/vr_stereo.c
+    src/xw_remaster/vr_cockpit.c)
 set(XW_REMASTER_HEADERS
     src/xw_remaster/config.h
     src/xw_remaster/hud_assets.h
