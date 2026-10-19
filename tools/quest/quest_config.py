@@ -12,7 +12,7 @@ used by the OpenTIE-VR and OpenXWA-VR ports:
   physical left stick  -> pad rightx (yaw) / righty (pitch)
   triggers             -> lefttrigger / righttrigger
   A / B / X / Y        -> south / east / west / north
-  right grip           -> rightshoulder
+  right grip           -> rightshoulder (hold: rear view)
   stick clicks         -> swapped too: left click = rightstick, right = leftstick
   left Menu (tap)      -> start
   left grip held (shift layer): A/B/X/Y -> dpaddown/dpadright/dpadleft/dpadup,
@@ -41,7 +41,7 @@ QUEST_GAMEPAD_DEFAULTS = """\
       target_nearest_fighter: east
       target_my_attacker: west
       match_speed: north
-      view_toggle_elevated: rightshoulder
+      hold_view_rear: rightshoulder
       view_forward: rightstick
       hyperspace: leftstick
       pause: start

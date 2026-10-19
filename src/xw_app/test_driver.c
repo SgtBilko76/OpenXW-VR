@@ -121,6 +121,10 @@ void XwTestDriver_Frame(void) {
 			PushKey(sc, true);
 			release_key = sc;
 		}
+	} else if (!strcmp(word, "keydown") || !strcmp(word, "keyup")) {
+		SDL_Scancode sc = SDL_GetScancodeFromName(arg);
+		if (sc != SDL_SCANCODE_UNKNOWN)
+			PushKey(sc, word[3] == 'd');
 	} else if (!strcmp(word, "click") && sscanf(arg, "%f %f", &x, &y) == 2) {
 		PushMouse(x, y, SDL_BUTTON_LEFT, true);
 		release_button = SDL_BUTTON_LEFT;

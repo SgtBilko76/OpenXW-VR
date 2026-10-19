@@ -81,8 +81,11 @@ bool XwVrCockpit_Add(AeronCommandBuffer* cmd, AeronScene3D* scene, int index, co
 		return false;
 	/* Model axes are the body eye axes (x right, y down, z forward) in metres
 	 * with the pilot's eye at the origin. The cockpit is fixed to the ship,
-	 * not to the game camera: the look views (right grip "12:00 HIGH", rear
-	 * views) turn the camera inside the cockpit. */
+	 * not to the game camera: the look views (12:00 HIGH, rear, shoulder)
+	 * turn the camera inside the cockpit. Looking more than 60 degrees away
+	 * from the nose (rear/shoulder/wing views, right grip on Quest) the seat
+	 * and canopy frame would fill the view, so the cockpit is left out, as
+	 * the game leaves out its 2D cockpit there. */
 	float rows[9];
 	XwRenderMath_ViewRows(&body->camera, rows);
 	float axes[9]; /* column c = eye axis c in scene space */
@@ -101,6 +104,9 @@ bool XwVrCockpit_Add(AeronCommandBuffer* cmd, AeronScene3D* scene, int index, co
 			axes[r * 3 + 1] = -ship[r * 4 + 2] / scale;
 			axes[r * 3 + 2] = -ship[r * 4 + 1] / scale;
 		}
+		const float facing = rows[6] * axes[2] + rows[7] * axes[5] + rows[8] * axes[8];
+		if (facing < 0.5f)
+			return false;
 	}
 	AeronSceneMeshInstance in;
 	memset(&in, 0, sizeof in);
