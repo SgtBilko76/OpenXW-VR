@@ -229,8 +229,11 @@ static bool FrameVr(const XwRenderSnapshot* s, const XwPreparedFlight* frame, co
 		if (ok) {
 			XwLighting_Environment(scene, &s->appearance, eye_frame.view.camera.pos);
 			ok = Submit(s, &eye_frame, true) && XwEffects_Submit(scene, s, &eye_frame) &&
-				 XwSpecialWorld_Prepare(cmd, scene, s, &eye_frame, true);
+				 XwSpecialWorld_Prepare(cmd, scene, s, &eye_frame, true) &&
+				 XwHudRenderer_PrepareWorldMarkers(cmd, s, &eye_frame.view, scene);
 		}
+		if (ok)
+			AeronScene_SetPassHook(scene, AERON_SCENE_HOOK_AFTER_TRANSPARENT, WorldMarkers, scene);
 		if (ok) {
 			/* The second eye reuses the first eye's shadow cascades. */
 			AeronScene_SetDirectionalShadowReuse(scene, e > 0);

@@ -336,7 +336,7 @@ int XwFlightPipeline_RetainOverlay(AeronCommandBuffer* cmd, int width, int heigh
 													   .debug_label = "X-Wing VR HUD overlay" });
 	if (!pass)
 		return 0;
-	XwHudRenderer_DrawWorldMarkers(cmd, pass, g_target);
+	/* World markers (target brackets) are depth-tested: drawn in the eyes. */
 	XwHudRenderer_Draw(cmd, pass, g_target);
 	Aeron_EndRenderPass(pass);
 	/* Output() publishes the retained target; there is no world colour. */
