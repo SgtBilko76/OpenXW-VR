@@ -52,7 +52,7 @@ remapped in Settings > Controller):
 | Right trigger | Fire |
 | Left trigger (hold) | Target / roll modifier |
 | A / B / X / Y | Next target / nearest fighter / my attacker / match speed |
-| Right grip | Elevated view |
+| Right grip (hold) | Rear view |
 | Left stick click | Forward view |
 | Right stick click | Hyperspace |
 | Left Menu, short press | Pause |
@@ -60,6 +60,15 @@ remapped in Settings > Controller):
 Left grip held (shift layer): A full throttle, B throttle down, X clear
 target, Y Escape, left trigger cycle firing mode, left stick click cycle
 weapon group, right stick click cycle shields.
+
+## Known limitations (beta)
+
+- Quest 3 tested only. The same APK should run on PICO 4 / Neo 3 (PICO OS
+  5.9.0 or newer), untested.
+- 3D cockpits for the X-Wing, Y-Wing, A-Wing and B-Wing (1998 flight
+  engine); their small built-in screens are dark, the original instruments
+  stay in front of you.
+- Signed with a debug key.
 
 ## Credits
 

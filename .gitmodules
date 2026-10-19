@@ -1,9 +1,10 @@
 [submodule "src/landru"]
 	path = src/landru
-	url = git@github.com:elyosh/landru.git
+	url = https://github.com/elyosh/landru.git
 [submodule "aeron"]
 	path = aeron
-	url = git@github.com:elyosh/Aeron.git
+	url = https://github.com/SgtBilko76/Aeron.git
+	branch = quest-vr-xw
 [submodule "src/imuse"]
 	path = src/imuse
-	url = git@github.com:elyosh/imuse.git
+	url = https://github.com/elyosh/imuse.git
