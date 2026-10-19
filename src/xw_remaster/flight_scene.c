@@ -323,9 +323,9 @@ bool XwFlightScene_Frame(const XwRenderSnapshot* s, const XwPreparedFlight* fram
 	if (failed.valid && failed.mission == key.mission && failed.world == key.world &&
 		failed.config == key.config && failed.assets == key.assets && failed.width == w && failed.height == h)
 		return false;
-	/* Quest: head-tracked stereo while flying (not paused, no settings). */
+	/* Quest: head-tracked stereo while flying (also paused / settings open). */
 	const XwVrStereoFrame* vr = XwRemasterVr_PublishedFrame();
-	if (vr && !s->paused && !XwPort_SettingsOpen()) {
+	if (vr) {
 		if (FrameVr(s, frame, vr, key))
 			return true;
 		if (Aeron_FatalErrorRequested())

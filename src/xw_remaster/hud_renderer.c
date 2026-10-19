@@ -50,6 +50,11 @@ static bool Panes(const XwHudDraw* draw) {
 				return false;
 		} else if (order[i].kind == 1) {
 			const XwSnapHudPaint* p = &c->paint[index];
+			/* 3D cockpit: the message strip's full-width backdrop would float
+			 * in mid-air below the dashboard; its text still draws. */
+			if (skip_base && p->x0 <= 0 && p->x1 - p->x0 >= draw->snapshot->cockpit.screen_width &&
+				p->y0 >= draw->snapshot->cockpit.screen_height - 32)
+				continue;
 			XwHudDraw_Fill(draw, (XwSnapRect) { p->x0, p->y0, p->x1 - p->x0, p->y1 - p->y0 }, p->clip,
 						   p->color, false);
 		} else {

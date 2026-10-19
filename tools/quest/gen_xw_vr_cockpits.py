@@ -28,7 +28,7 @@ import subprocess
 import sys
 import tempfile
 
-from PIL import Image
+from PIL import Image, ImageChops
 
 MODEL_SCALE = 0.022
 # craft id -> (obj file, eye right/up/fwd in metres from Data/Ships/*.def)
@@ -38,8 +38,11 @@ CRAFTS = {
     "awing": ("a-wing_cockpit.obj", (0.0, 0.56, -0.4)),
     "bwing": ("b-wing_cockpit.obj", (0.0, 4.55, 1.15)),
 }
-# Lit like the game's ships: dim albedo and rough surfaces avoid sun glare.
-BASE_COLOR = 0.8
+# Lit like the game's ships: Revival's own diffuse (Kd, mostly 0.4) and rough
+# surfaces; brighter albedo made the white side consoles glow.
+BASE_COLOR_MAX = 0.45
+# Self-lit parts (lamps, screens, labels) at a moderate glow.
+EMISSIVE = 0.35
 ROUGHNESS = 0.8
 
 
@@ -51,13 +54,15 @@ def parse_mtl(path):
             continue
         key, args = parts[0], parts[1:]
         if key == "newmtl":
-            cur = mats.setdefault(" ".join(args), {"d": 1.0, "Ke": (0.0, 0.0, 0.0)})
+            cur = mats.setdefault(" ".join(args), {"d": 1.0, "Ke": (0.0, 0.0, 0.0), "Kd": (0.4, 0.4, 0.4)})
         elif cur is None:
             continue
         elif key == "map_Kd":
             cur["map_Kd"] = args[-1]
         elif key == "map_glow":
             cur["map_glow"] = args[-1]
+        elif key == "Kd":
+            cur["Kd"] = tuple(float(a) for a in args[:3])
         elif key == "d":
             cur["d"] = float(args[0])
         elif key == "Ke":
@@ -179,6 +184,26 @@ def convert(name, gamedata, work):
 
     images, image_index = [], {}
 
+    def emissive(kd_rel, glow_rel):
+        """Revival's map_glow is a self-lit mask: emission = diffuse * mask."""
+        paths = []
+        for rel in (kd_rel, glow_rel):
+            src = os.path.join(gamedata, "Models", rel)
+            if not os.path.exists(src):
+                src = os.path.join(gamedata, "Textures", rel)
+            if not os.path.exists(src):
+                return None
+            paths.append(src)
+        key = ("emissive", kd_rel, glow_rel)
+        if key not in image_index:
+            kd = Image.open(paths[0]).convert("RGB")
+            mask = Image.open(paths[1]).convert("RGB").resize(kd.size)
+            png = f"{name}_{len(images):03d}_e.png"
+            ImageChops.multiply(kd, mask).save(os.path.join(work, png))
+            image_index[key] = len(images)
+            images.append({"uri": png})
+        return image_index[key]
+
     def image(rel):
         src = os.path.join(gamedata, "Models", rel)
         if not os.path.exists(src):
@@ -209,11 +234,11 @@ def convert(name, gamedata, work):
         if len(prim["pos"]) > 65535:
             raise SystemExit(f"{name}: material {mtl} has too many vertices")
         if mtl not in mat_index:
-            m = mats.get(mtl, {"d": 1.0, "Ke": (0.0, 0.0, 0.0)})
+            m = mats.get(mtl, {"d": 1.0, "Ke": (0.0, 0.0, 0.0), "Kd": (0.4, 0.4, 0.4)})
             alpha = m["d"]
             mat = {
                 "name": mtl or "default",
-                "pbrMetallicRoughness": {"baseColorFactor": [BASE_COLOR, BASE_COLOR, BASE_COLOR, alpha],
+                "pbrMetallicRoughness": {"baseColorFactor": [min(k, BASE_COLOR_MAX) for k in m["Kd"]] + [alpha],
                                          "metallicFactor": 0.0, "roughnessFactor": ROUGHNESS},
                 "doubleSided": True,
             }
@@ -228,10 +253,10 @@ def convert(name, gamedata, work):
             tex = image(m["map_Kd"]) if "map_Kd" in m and not screen else None
             if tex is not None:
                 mat["pbrMetallicRoughness"]["baseColorTexture"] = {"index": tex}
-            glow = image(m["map_glow"]) if "map_glow" in m else None
+            glow = emissive(m["map_Kd"], m["map_glow"]) if "map_glow" in m and "map_Kd" in m and not screen else None
             if glow is not None:
                 mat["emissiveTexture"] = {"index": glow}
-                mat["emissiveFactor"] = [1.0, 1.0, 1.0]
+                mat["emissiveFactor"] = [EMISSIVE, EMISSIVE, EMISSIVE]
             elif any(k > 0 for k in m["Ke"]):
                 mat["emissiveFactor"] = list(m["Ke"])
             mat_index[mtl] = len(materials)
