@@ -34,6 +34,10 @@ int XwInput_ReadKey(void);
 int XwInput_Modifiers(void);
 void XwInput_MousePosition(int16_t* buttons, int16_t* x, int16_t* y);
 void XwInput_MouseMovement(int16_t* x, int16_t* y);
+/* Screen rect (left, top, right, bottom; game pixels like XwInput_CursorPosition)
+ * of the visible, active text field (pilot name), if any, and the game screen
+ * size in the same pixels. */
+bool XwInput_TextFieldRect(int rect[4], int size[2]);
 #ifdef __cplusplus
 }
 #endif

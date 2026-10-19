@@ -3,6 +3,7 @@
 #include "xw_app/settings/settings.h"
 #include "xw_app/setup.h"
 #include "xw_app/ui.h"
+#include "xw_app/vr_keyboard.h"
 #include "xw_remaster/xw_remaster.h"
 #include "xw_runtime/config/config.h"
 #include "xw_runtime/input/capture.h"
@@ -46,6 +47,7 @@ static int XwApplication_FrameLoop(void) {
 			}
 		}
 		XwPort_SetSettingsOpen(menu_open);
+		XwVrKeyboard_BeginFrame(input);
 		XwRemaster_BeginFrame(input);
 		XwPort_Tick(delta_us);
 		menu_opened |= XwSettingsMenu_ConsumeRuntimeRequest();
@@ -54,6 +56,7 @@ static int XwApplication_FrameLoop(void) {
 		XwRemaster_Frame(delta_us);
 		if (XwPort_ShouldQuit())
 			break;
+		XwVrKeyboard_Frame(input, (float)delta_us * 1e-6f);
 		XwPresentation_SubmitCursor();
 		if (XwSettingsMenu_Open() && !menu_opened)
 			XwSettingsMenu_Frame(input, (float)delta_us * 1e-6f);
@@ -120,7 +123,7 @@ int XwApplication_Run(const XwLaunchOptions* options) {
 	}
 	XwHostConfig_InitAeron(options, &config);
 	/* Quest: present through OpenXR instead of the Android window. */
-	XwVr_Install();
+	const int vr_active = XwVr_Install();
 	if (!Aeron_Init(&config)) {
 		Aeron_Shutdown();
 		return 1;
@@ -150,6 +153,7 @@ int XwApplication_Run(const XwLaunchOptions* options) {
 		Aeron_LogError("xw.settings", "%s", error);
 		goto cleanup;
 	}
+	XwVrKeyboard_Init(&ui, vr_active != 0);
 	exit_code = XwApplication_FrameLoop();
 cleanup:
 	XwSettingsMenu_FlushForExit();

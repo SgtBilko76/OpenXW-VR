@@ -4,6 +4,7 @@
 #include "xw/flight/flight_input.h"
 #include "xw/flight/player/user.h"
 #include "xw/frontend/register.h"
+#include "xw_dos94/frontend/register.h"
 #include "xw/input/dinput.h"
 #include "xw/input/joystick.h"
 #include "xw/input/win_mouse.h"
@@ -24,6 +25,7 @@
 #include <aeron/compat/host.h>
 #include <landru/dialog.h>
 #include <landru/dlgjoy.h>
+#include <landru/inpcall.h>
 #include <landru/io.h>
 #include <landru/surface.h>
 #include <string.h>
@@ -426,6 +428,45 @@ static bool HasTextEntry(Input* list) {
 			return true;
 	}
 	return false;
+}
+
+/* Pilot-name style fields of both frontends (the 1994 one draws its own). */
+static bool IsTextField(const Input* i) {
+	return i->draw == register_idraw_Reg_String_Button || i->update == register_iupdate_Reg_String_Button ||
+		   i->update == Dos94_register_iupdate_Reg_String_Button;
+}
+
+static bool FindTextField(Input* list, const Rect* parent_frame, const Rect* parent_clip, Rect* out) {
+	for (Input* i = list; i; i = i->next) {
+		if ((i->flags & (INPUT_VISIBLE | INPUT_ACTIVE)) != (INPUT_VISIBLE | INPUT_ACTIVE))
+			continue;
+		Rect frame = *parent_frame, clip = *parent_clip;
+		xinpcall_Clip_Input_To_Frame(i, &frame, &clip);
+		if (IsTextField(i)) {
+			*out = frame;
+			return true;
+		}
+		if (FindTextField(i->child, &frame, &clip, out))
+			return true;
+	}
+	return false;
+}
+
+bool XwInput_TextFieldRect(int rect[4], int size[2]) {
+	if (!view_gbl)
+		return false;
+	Rect frame, clip, field, bounds;
+	xinpcall_Get_Input_Parent_Frame(NULL, NULL, &frame, &clip);
+	if (!FindTextField(xinput_Get_Active_Input_List(), &frame, &clip, &field))
+		return false;
+	rect[0] = field.left;
+	rect[1] = field.top;
+	rect[2] = field.right;
+	rect[3] = field.bottom;
+	xsurface_Get_Logical_Bounds(&bounds);
+	size[0] = bounds.right - bounds.left;
+	size[1] = bounds.bottom - bounds.top;
+	return true;
 }
 
 bool XwInput_SettingsShortcutAllowed(void) {

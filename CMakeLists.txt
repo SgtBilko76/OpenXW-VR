@@ -892,6 +892,7 @@ set(XW_APP_SOURCES
     src/xw_app/main.c
     src/xw_app/application.c
     src/xw_app/host_config.c
+    src/xw_app/vr_keyboard.c
     src/xw_vr/xw_vr.c
 )
 set(XW_APP_HEADERS
