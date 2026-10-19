@@ -8,6 +8,7 @@
 #include "xw_remaster/hud_renderer.h"
 #include "xw_remaster/presented_frame.h"
 #include "xw_remaster/view_mode.h"
+#include "xw_remaster/vr_stereo.h"
 #include "xw_runtime/runtime/flight_loading.h"
 #include "xw_runtime/snapshot/render_snapshot.h"
 #include <aeron/aeron.h>
@@ -59,6 +60,8 @@ void XwRemaster_BeginFrame(const AeronInputSnapshot* input) {
 void XwRemaster_Frame(int32_t delta_us) {
 	if (!initialized || Aeron_FatalErrorRequested())
 		return;
+	/* Quest: stereo is reported again by this frame's flight scene. */
+	XwRemasterVr_SetRendered(0, NULL);
 	const XwRenderSnapshot* snapshot = XwRenderSnapshot_Current();
 	uint64_t next_mission = snapshot ? snapshot->key.mission_generation : 0;
 	uint8_t next_version = snapshot ? snapshot->flight_version : 0;

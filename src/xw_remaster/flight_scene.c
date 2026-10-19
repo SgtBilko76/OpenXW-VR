@@ -10,6 +10,10 @@
 #include "xw_remaster/lighting.h"
 #include "xw_remaster/sky.h"
 #include "xw_remaster/special_world.h"
+#include "xw_remaster/vr_stereo.h"
+#include "xw_runtime/runtime/port.h"
+#include "xw_runtime/runtime/presentation.h"
+#include <math.h>
 #include <aeron/aeron.h>
 #include <aeron/asset/opt_model.h>
 #include <stdlib.h>
@@ -28,6 +32,11 @@ static int width, height, samples;
 static XwFlightOutput output;
 static uint64_t output_revision;
 static SceneFailure failed;
+/* VR stereo: copy of the prepared frame with one eye's view; set while the
+ * last frame went to the headset in stereo (the flat output then holds only
+ * the HUD, so leaving stereo must render the world again). */
+static XwPreparedFlight eye_frame;
+static bool was_stereo;
 
 void XwFlightScene_Invalidate(void) {
 	memset(&output, 0, sizeof output);
@@ -183,6 +192,102 @@ static void WorldMarkers(AeronCommandBuffer* cmd, AeronRenderPass* pass, int w, 
 	XwHudRenderer_DrawWorldMarkers(cmd, pass, AeronScene_ColorRt(user));
 }
 
+/* Eye render size relative to the headset's eye images (GPU budget). */
+#define XW_VR_EYE_SCALE 0.65f
+
+/* Quest stereo flight: the 3D world once per head-tracked eye straight into
+ * the OpenXR eye images, then the HUD/cockpit alone on a transparent
+ * background into the flat output, which the host shows as an overlay. */
+static bool FrameVr(const XwRenderSnapshot* s, const XwPreparedFlight* frame, const XwVrStereoFrame* vr,
+					SceneFailure key) {
+	const int flat_w = frame->view.camera.viewport.width, flat_h = frame->view.camera.viewport.height;
+	const int eye_w = (int)((float)vr->eyes[0].target_width * XW_VR_EYE_SCALE) & ~1;
+	const int eye_h = (int)((float)vr->eyes[0].target_height * XW_VR_EYE_SCALE) & ~1;
+	const int msaa = XwRemasterConfig_Effective()->msaa_samples;
+	XwFlightPipeline_SetDirect(0, flat_w, flat_h);
+	if (!Ensure(eye_w, eye_h, msaa) || !XwEngineGlows_Prepare())
+		return Fail(key);
+	bool ok = true;
+	for (int e = 0; ok && e < 2; ++e) {
+		const XwVrStereoEye* eye = &vr->eyes[e];
+		const float tangents[4] = { eye->tan_left, eye->tan_right, eye->tan_up, eye->tan_down };
+		memcpy(&eye_frame, frame, sizeof eye_frame);
+		XwRenderMath_ApplyVrEye(&eye_frame.view, eye->position_m, eye->orientation, tangents, eye_w, eye_h);
+		eye_frame.reset_history = true;
+		eye_frame.regenerate_motion = false;
+		XwFlightPipeline_SetVrEye(1);
+		if (!XwFlightPipeline_Begin(scene, s, &eye_frame, true)) {
+			ok = false;
+			break;
+		}
+		AeronCommandBuffer* cmd = Aeron_AcquireCommandBuffer();
+		if (!cmd) {
+			ok = false;
+			break;
+		}
+		ok = XwSky_Prepare(cmd, scene, s, &eye_frame.view) && XwLighting_Begin(scene, s);
+		if (ok) {
+			XwLighting_Environment(scene, &s->appearance, eye_frame.view.camera.pos);
+			ok = Submit(s, &eye_frame, true) && XwEffects_Submit(scene, s, &eye_frame) &&
+				 XwSpecialWorld_Prepare(cmd, scene, s, &eye_frame, true);
+		}
+		if (ok) {
+			/* The second eye reuses the first eye's shadow cascades. */
+			AeronScene_SetDirectionalShadowReuse(scene, e > 0);
+			ok = AeronScene_Render(scene, cmd) != 0;
+			AeronScene_SetDirectionalShadowReuse(scene, 0);
+		}
+		if (ok)
+			ok = XwFlightPipeline_EyeOutput(cmd, Aeron_RenderTargetGetTexture(AeronScene_SceneRt(scene)), eye_w,
+											eye_h, eye->target, eye->target_width, eye->target_height) != 0;
+		if (!ok) {
+			Aeron_CancelCommandBuffer(cmd);
+			break;
+		}
+		if (!Aeron_SubmitCommandBuffer(cmd)) {
+			XwFlightPipeline_SetVrEye(0);
+			return Fail(key);
+		}
+	}
+	XwFlightPipeline_SetVrEye(0);
+	if (!ok) {
+		Aeron_LogWarn("xw.vr", "stereo flight frame failed; using the flat view");
+		return false;
+	}
+	AeronCommandBuffer* cmd = Aeron_AcquireCommandBuffer();
+	if (!cmd)
+		return Fail(key);
+	if (!XwFlightPipeline_RetainOverlay(cmd, flat_w, flat_h)) {
+		Aeron_CancelCommandBuffer(cmd);
+		return Fail(key);
+	}
+	bool submitted = Aeron_SubmitCommandBuffer(cmd);
+	XwFlightPipeline_Commit(submitted);
+	if (!submitted)
+		return Fail(key);
+	output = (XwFlightOutput) { .texture = XwFlightPipeline_Output(),
+								.key = s->key,
+								.width = flat_w,
+								.height = flat_h,
+								.direct = false,
+								.revision = ++output_revision,
+								.color_space = AERON_COLOR_SPACE_LINEAR_SRGB };
+	failed.valid = false;
+	float tangents[4];
+	XwRenderMath_FrameTangents(&frame->view.camera, tangents);
+	XwRemasterVr_SetRendered(1, tangents);
+	if (!was_stereo) {
+		AeronRectI logical = XwPresentation_Frame();
+		Aeron_LogInfo("xw.vr",
+					  "stereo flight active: eyes %dx%d, flat %dx%d (frame %d,%d %dx%d), tangents L%.3f R%.3f "
+					  "U%.3f D%.3f",
+					  eye_w, eye_h, flat_w, flat_h, logical.x, logical.y, logical.width, logical.height,
+					  (double)tangents[0], (double)tangents[1], (double)tangents[2], (double)tangents[3]);
+	}
+	was_stereo = true;
+	return output.texture != NULL;
+}
+
 bool XwFlightScene_Frame(const XwRenderSnapshot* s, const XwPreparedFlight* frame, bool direct) {
 	if (s && s->flight_version != 98) {
 		memset(&output, 0, sizeof output);
@@ -209,6 +314,16 @@ bool XwFlightScene_Frame(const XwRenderSnapshot* s, const XwPreparedFlight* fram
 	if (failed.valid && failed.mission == key.mission && failed.world == key.world &&
 		failed.config == key.config && failed.assets == key.assets && failed.width == w && failed.height == h)
 		return false;
+	/* Quest: head-tracked stereo while flying (not paused, no settings). */
+	const XwVrStereoFrame* vr = XwRemasterVr_PublishedFrame();
+	if (vr && !s->paused && !XwPort_SettingsOpen()) {
+		if (FrameVr(s, frame, vr, key))
+			return true;
+		if (Aeron_FatalErrorRequested())
+			return false;
+	}
+	bool leaving_stereo = was_stereo;
+	was_stereo = false;
 	int msaa = XwRemasterConfig_Effective()->msaa_samples;
 	bool recreate = !scene || width != w || height != h || samples != msaa;
 	int physical_w = 0, physical_h = 0;
@@ -218,7 +333,7 @@ bool XwFlightScene_Frame(const XwRenderSnapshot* s, const XwPreparedFlight* fram
 											 w, h);
 	if (Aeron_FatalErrorRequested())
 		return false;
-	bool reset = frame->reset_history || recreate || !output.key.view_serial;
+	bool reset = frame->reset_history || recreate || !output.key.view_serial || leaving_stereo;
 	if (!frame->render_needed && !reset && wanted == output.direct)
 		return true;
 	if (!Ensure(w, h, msaa) || !XwEngineGlows_Prepare() || !XwFlightPipeline_Begin(scene, s, frame, reset))

@@ -298,3 +298,57 @@ void XwRenderMath_ViewRows(const AeronSceneCamera* camera, float m[9]) {
 	m[7] = 2.0f * (yz + wx);
 	m[8] = 1.0f - 2.0f * (xx + yy);
 }
+
+/* VR stereo: replaces the main camera by one head-tracked eye. The head pose
+ * (OpenXR LOCAL space at recenter: x right, y up, -z forward) is applied on
+ * top of the game ("body") camera, whose axes are x right, y down, z forward
+ * (C = diag(1,-1,-1) converts between them), and the projection becomes the
+ * eye's asymmetric frustum over a `width` x `height` render target. */
+void XwRenderMath_ApplyVrEye(XwRenderView* view, const float position_m[3], const float orientation_xyzw[4],
+							 const float tangents[4], int width, int height) {
+	AeronSceneCamera* c = &view->camera;
+	float body[9], head[9], rows[9];
+	const float flat_focal = (float)c->viewport.width / (2.0f * tanf(c->h_half_rad));
+	XwRenderMath_ViewRows(c, body); /* rows = body axes in world space */
+	AeronSceneCamera hq = { .ori = { orientation_xyzw[3], orientation_xyzw[0], orientation_xyzw[1],
+									 orientation_xyzw[2] } };
+	XwRenderMath_ViewRows(&hq, head); /* head-local -> LOCAL, OpenXR axes */
+	/* rel = C * head * C maps eye-local game axes to body game axes; the
+	 * eye's rows in world space are rel^T * body. */
+	for (int r = 0; r < 3; ++r)
+		for (int k = 0; k < 3; ++k) {
+			float sum = 0.0f;
+			for (int j = 0; j < 3; ++j) {
+				const float sign = (j == 0 ? 1.0f : -1.0f) * (r == 0 ? 1.0f : -1.0f);
+				sum += head[j * 3 + r] * sign * body[j * 3 + k];
+			}
+			rows[r * 3 + k] = sum;
+		}
+	fl_rows_to_quat(rows, c->ori);
+	/* Eye position: seat-relative metres -> body game axes -> world units. */
+	const float upm = AERON_OPT_UNITS_PER_METER;
+	const float local[3] = { position_m[0] * upm, -position_m[1] * upm, -position_m[2] * upm };
+	for (int axis = 0; axis < 3; ++axis)
+		c->pos[axis] += body[axis] * local[0] + body[3 + axis] * local[1] + body[6 + axis] * local[2];
+	const float tl = tangents[0], tr = tangents[1], tu = tangents[2], td = tangents[3];
+	c->h_half_rad = atanf((tl + tr) * 0.5f);
+	c->v_half_rad = atanf((tu + td) * 0.5f);
+	c->proj_x_offset = (tl - tr) / (tl + tr);
+	c->proj_y_offset = (td - tu) / (tu + td);
+	c->viewport = (AeronRectI) { 0, 0, width, height };
+	/* Pixel-sized effects keep their angular size. */
+	const float eye_focal = (float)width / (tl + tr);
+	if (flat_focal > 0.0f && isfinite(flat_focal)) {
+		view->classic_pixel_scale_x *= eye_focal / flat_focal;
+		view->classic_pixel_scale_y *= eye_focal / flat_focal;
+	}
+	AeronScene_ComputeViewProj(c, view->view_proj);
+}
+
+void XwRenderMath_FrameTangents(const AeronSceneCamera* c, float out[4]) {
+	const float th = tanf(c->h_half_rad), tv = tanf(c->v_half_rad);
+	out[0] = th * (1.0f + c->proj_x_offset);
+	out[1] = th * (1.0f - c->proj_x_offset);
+	out[2] = tv * (1.0f - c->proj_y_offset);
+	out[3] = tv * (1.0f + c->proj_y_offset);
+}

@@ -1,5 +1,6 @@
 #include "xw_remaster/flight_pipeline.h"
 #include "aeron/aeron.h"
+#include "aeron/external_present.h"
 #include "aeron/scene/bloom.h"
 #include "aeron/scene/draw_list2d.h"
 #include "aeron/scene/present.h"
@@ -20,6 +21,12 @@ static int g_directWanted, g_retained;
 static AeronDrawList2D* g_bars;
 static int g_barsVisible;
 static bool g_valid;
+/* VR stereo: eye renders skip temporal history, motion blur and SSAO; each
+ * eye is tonemapped into its own target and blitted to the headset. */
+static int g_vrEye;
+static AeronRenderTarget* g_eyeTarget;
+static AeronSceneBloom* g_eyeBloom;
+static int g_eyeWidth, g_eyeHeight;
 
 void XwFlightPipeline_Invalidate(void) {
 	g_color = g_bloomTexture = NULL;
@@ -87,7 +94,7 @@ void XwFlightPipeline_Post(AeronScene3D* scene, float shutter, int motion) {
 	const XwRenderSettings* settings = XwRemasterConfig_Effective();
 	const AeronSceneSsaoSettings* a = &settings->scene.ssao;
 	const XwMotionBlurSettings* m = &settings->motion_blur;
-	AeronScene_SetPost(scene, &(AeronScenePostDesc) { .ssao_quality = a->ssao_quality,
+	AeronScene_SetPost(scene, &(AeronScenePostDesc) { .ssao_quality = g_vrEye ? 0 : a->ssao_quality,
 													  .ssao_intensity = a->ssao_intensity,
 													  .ssao_power = a->ssao_power,
 													  .ssao_radius_view = a->ssao_radius_view,
@@ -142,7 +149,7 @@ bool XwFlightPipeline_Begin(AeronScene3D* scene, const XwRenderSnapshot* s, cons
 						: 0;
 	if ((s->paused || !frame->regenerate_motion) && !settings->motion_blur.pause_keep_blur)
 		shutter = 0;
-	XwFlightPipeline_Post(scene, shutter, 1);
+	XwFlightPipeline_Post(scene, g_vrEye ? 0 : shutter, !g_vrEye);
 	/* FSR sees a stationary current frame while Aeron retains the last blur vectors. */
 	AeronScene_SetMotionContext(
 		scene,
@@ -274,8 +281,79 @@ void XwFlightPipeline_Commit(bool submitted) {
 		XwFlightPipeline_Invalidate();
 }
 
+void XwFlightPipeline_SetVrEye(int on) { g_vrEye = on; }
+
+int XwFlightPipeline_EyeOutput(AeronCommandBuffer* cmd, AeronTexture* color, int width, int height,
+							   SDL_GPUTexture* destination, int destination_width, int destination_height) {
+	if (!Ensure(g_width > 0 ? g_width : width, g_height > 0 ? g_height : height))
+		return 0;
+	if (!g_eyeTarget || g_eyeWidth != width || g_eyeHeight != height) {
+		Aeron_DestroyRenderTarget(g_eyeTarget);
+		AeronSceneBloom_Destroy(g_eyeBloom);
+		g_eyeTarget =
+			Aeron_CreateRenderTarget(&(AeronRenderTargetDesc) { .width = width,
+																.height = height,
+																.format = AERON_TEXTURE_FORMAT_RGBA16_FLOAT,
+																.debug_name = "xw.vr.eye" });
+		g_eyeBloom = AeronSceneBloom_Create(width, height);
+		g_eyeWidth = width;
+		g_eyeHeight = height;
+		if (!g_eyeTarget || !g_eyeBloom)
+			return 0;
+	}
+	float intensity = XwRemasterConfig_Effective()->bloom_intensity;
+	AeronTexture* bloom = NULL;
+	if (intensity > 0) {
+		if (!AeronSceneBloom_Apply(g_eyeBloom, cmd, color, width, height, height))
+			return 0;
+		bloom = Aeron_RenderTargetGetTexture(AeronSceneBloom_ColorRt(g_eyeBloom));
+	}
+	AeronRenderPass* pass =
+		Aeron_BeginRenderPass(&(AeronRenderPassDesc) { .color_target = g_eyeTarget,
+													   .clear_color = 1,
+													   .clear_color_rgba = { 0, 0, 0, 1 },
+													   .command_buffer = cmd,
+													   .debug_label = "X-Wing VR eye" });
+	if (!pass)
+		return 0;
+	AeronScenePresentChain_Draw(g_present, pass, color, g_sampler, bloom, bloom ? intensity : 0, width, height,
+								1, (const float[4]) { 1, 1, 1, 1 }, 0);
+	Aeron_EndRenderPass(pass);
+	return Aeron_BlitTextureToExternal(cmd, Aeron_RenderTargetGetTexture(g_eyeTarget), destination,
+									   destination_width, destination_height);
+}
+
+int XwFlightPipeline_RetainOverlay(AeronCommandBuffer* cmd, int width, int height) {
+	if (!Ensure(width, height))
+		return 0;
+	g_directWanted = 0;
+	g_barsVisible = 0;
+	AeronRenderPass* pass =
+		Aeron_BeginRenderPass(&(AeronRenderPassDesc) { .color_target = g_target,
+													   .clear_color = 1,
+													   .clear_color_rgba = { 0, 0, 0, 0 },
+													   .command_buffer = cmd,
+													   .debug_label = "X-Wing VR HUD overlay" });
+	if (!pass)
+		return 0;
+	XwHudRenderer_DrawWorldMarkers(cmd, pass, g_target);
+	XwHudRenderer_Draw(cmd, pass, g_target);
+	Aeron_EndRenderPass(pass);
+	/* Output() publishes the retained target; there is no world colour. */
+	g_color = Aeron_RenderTargetGetTexture(g_target);
+	g_bloomTexture = NULL;
+	g_retained = 1;
+	return 1;
+}
+
 void XwFlightPipeline_Shutdown(void) {
 	g_valid = false;
+	Aeron_DestroyRenderTarget(g_eyeTarget);
+	AeronSceneBloom_Destroy(g_eyeBloom);
+	g_eyeTarget = NULL;
+	g_eyeBloom = NULL;
+	g_eyeWidth = g_eyeHeight = 0;
+	g_vrEye = 0;
 	AeronDrawList_Destroy(g_bars);
 	g_bars = NULL;
 	g_barsVisible = 0;

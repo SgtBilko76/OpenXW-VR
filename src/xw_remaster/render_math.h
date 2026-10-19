@@ -37,4 +37,11 @@ void XwRenderMath_DosMeshMatrix(const float pose[16], uint8_t format, uint8_t co
 								float out[16]);
 void XwRenderMath_ViewRows(const AeronSceneCamera* camera, float rows[9]);
 bool XwRenderMath_SameObject(XwSnapObjectId a, XwSnapObjectId b);
+/* VR stereo: turn the main view into one head-tracked eye (seat-relative
+ * OpenXR pose, frustum tangents left/right/up/down) over a width x height
+ * target. */
+void XwRenderMath_ApplyVrEye(XwRenderView* view, const float position_m[3], const float orientation_xyzw[4],
+							 const float tangents[4], int width, int height);
+/* Positive tangents (left, right, up, down) of a camera's frame edges. */
+void XwRenderMath_FrameTangents(const AeronSceneCamera* camera, float out[4]);
 #endif

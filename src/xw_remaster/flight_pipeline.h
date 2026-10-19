@@ -1,6 +1,7 @@
 #ifndef XW_REMASTER_FLIGHT_PIPELINE_H
 #define XW_REMASTER_FLIGHT_PIPELINE_H
 #include "xw_remaster/flight.h"
+#include <SDL3/SDL_gpu.h>
 
 bool XwFlightPipeline_PrepareResources(AeronScene3D* scene, int width, int height);
 bool XwFlightPipeline_Begin(AeronScene3D* scene, const XwRenderSnapshot* snapshot,
@@ -19,4 +20,13 @@ void XwFlightPipeline_Commit(bool submitted);
 AeronTexture* XwFlightPipeline_Output(void);
 void XwFlightPipeline_Invalidate(void);
 void XwFlightPipeline_Shutdown(void);
+/* VR stereo: Begin/Post for a head-tracked eye (no temporal, blur, SSAO). */
+void XwFlightPipeline_SetVrEye(int on);
+/* Tonemaps an eye's scene colour (with bloom) and blits it to the headset
+ * eye image. No pass may be open on `cmd`. */
+int XwFlightPipeline_EyeOutput(AeronCommandBuffer* cmd, AeronTexture* color, int width, int height,
+							   SDL_GPUTexture* destination, int destination_width, int destination_height);
+/* Retained output = HUD/cockpit alone on a transparent background (the VR
+ * host shows it as an overlay in front of the stereo world). */
+int XwFlightPipeline_RetainOverlay(AeronCommandBuffer* cmd, int width, int height);
 #endif
