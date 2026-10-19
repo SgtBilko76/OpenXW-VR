@@ -17,7 +17,12 @@ Axes: Revival's OBJ space is x right, y up, z forward, 0.022 m per unit
 metres with the eye at the origin, converted so that Aeron's glTF import
 ((-gx, -gz, gy)) yields the game's eye axes (x right, y down, z forward).
 
-Usage: gen_xw_vr_cockpits.py <aeron_gltf_cook> <revival gamedata dir> <out dir>
+Usage: gen_xw_vr_cockpits.py <aeron_gltf_cook> <revival gamedata dir> <out dir> [craft ...]
+
+A craft is a name from CRAFTS, or `name=<obj file>:<right>,<up>,<fwd>` for
+any other Revival cockpit (eye offset in metres from its .def file; use the
+`cockpit_vr` line when there is one). This file is shared by the OpenXW,
+OpenTIE and OpenXWA Quest ports.
 """
 import json
 import math
@@ -37,7 +42,13 @@ CRAFTS = {
     "ywing": ("y-wing_cockpit_hq.obj", (0.0, 0.836, 4.18)),
     "awing": ("a-wing_cockpit.obj", (0.0, 0.56, -0.4)),
     "bwing": ("b-wing_cockpit.obj", (0.0, 4.55, 1.15)),
+    "tiefighter": ("tie-fighter_cockpit_vr.obj", (0.0, 0.1, -0.1)),
+    "tieinterceptor": ("tie-interceptor_cockpit_vr.obj", (0.0, 0.1, -0.1)),
+    "tiebomber": ("tie-bomber_cockpit_vr.obj", (1.474, 0.1, 1.7152)),
+    "gunboat": ("gunboat_cockpit.obj", (0.0, 0.36, 0.98)),
+    "falcon": ("yt-1300_cockpit.obj", (10.0, 1.25, 7.64)),
 }
+DEFAULT_CRAFTS = ["xwing", "ywing", "awing", "bwing"]
 # Lit like the game's ships: Revival's own diffuse (Kd, mostly 0.4) and rough
 # surfaces; brighter albedo made the white side consoles glow.
 BASE_COLOR_MAX = 0.45
@@ -309,13 +320,22 @@ def convert(name, gamedata, work):
 
 
 def main():
-    if len(sys.argv) != 4:
+    if len(sys.argv) < 4:
         raise SystemExit(__doc__)
     cook, gamedata, out_dir = sys.argv[1:4]
+    names = []
+    for spec in sys.argv[4:] or DEFAULT_CRAFTS:
+        if "=" in spec:
+            name, rest = spec.split("=", 1)
+            obj, offs = rest.split(":")
+            CRAFTS[name] = (obj, tuple(float(v) for v in offs.split(",")))
+        elif spec not in CRAFTS:
+            raise SystemExit(f"unknown craft {spec}")
+        names.append(spec.split("=", 1)[0])
     os.makedirs(out_dir, exist_ok=True)
     work = tempfile.mkdtemp(prefix="xw_vr_cockpits_")
     try:
-        for name in CRAFTS:
+        for name in names:
             gltf, nvert, ntri, nimg = convert(name, gamedata, work)
             glb = os.path.join(out_dir, f"{name}.glb")
             subprocess.run([cook, gltf, "--out", glb, "--no-zstd", "--rgba8", "--max-atlas", "2048"], check=True,
