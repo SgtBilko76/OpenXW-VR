@@ -14,9 +14,11 @@
  * 1 Y-Wing, 2 A-Wing, 3 B-Wing), or -1 for external/replay views, other
  * craft, or when the model is missing. */
 int XwVrCockpit_Select(const XwRenderSnapshot* s);
-/* Adds the seat-fixed cockpit for `body` (the game camera before any VR eye
- * offset) to the scene. Loads and uploads the model on first use. */
-bool XwVrCockpit_Add(AeronCommandBuffer* cmd, AeronScene3D* scene, int cockpit, const XwRenderView* body);
+/* Adds the cockpit, fixed to the player's ship with the eye at `body`'s
+ * camera (the game camera before any VR eye offset), to the scene. Loads and
+ * uploads the model on first use. */
+bool XwVrCockpit_Add(AeronCommandBuffer* cmd, AeronScene3D* scene, int cockpit, const XwRenderSnapshot* s,
+					 const XwRenderView* body);
 void XwVrCockpit_Shutdown(void);
 
 #endif

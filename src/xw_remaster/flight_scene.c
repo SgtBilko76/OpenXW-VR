@@ -237,7 +237,7 @@ static bool FrameVr(const XwRenderSnapshot* s, const XwPreparedFlight* frame, co
 		if (ok) {
 			/* Seat-fixed 3D cockpit around the game (body) camera. */
 			if (cockpit >= 0)
-				XwVrCockpit_Add(cmd, scene, cockpit, &frame->view);
+				XwVrCockpit_Add(cmd, scene, cockpit, s, &frame->view);
 			AeronScene_SetPassHook(scene, AERON_SCENE_HOOK_AFTER_TRANSPARENT, WorldMarkers, scene);
 		}
 		if (ok) {
@@ -363,7 +363,7 @@ bool XwFlightScene_Frame(const XwRenderSnapshot* s, const XwPreparedFlight* fram
 	}
 	/* Desktop preview of the VR cockpits: OPENXW_VR_COCKPIT_FLAT=1. */
 	if (getenv("OPENXW_VR_COCKPIT_FLAT"))
-		XwVrCockpit_Add(cmd, scene, XwVrCockpit_Select(s), &frame->view);
+		XwVrCockpit_Add(cmd, scene, XwVrCockpit_Select(s), s, &frame->view);
 	AeronScene_SetPassHook(scene, AERON_SCENE_HOOK_AFTER_TRANSPARENT, WorldMarkers, scene);
 	if (!XwFlightPipeline_Finish(cmd, scene, frame)) {
 		Aeron_CancelCommandBuffer(cmd);

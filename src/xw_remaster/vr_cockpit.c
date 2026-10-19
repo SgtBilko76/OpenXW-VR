@@ -68,20 +68,47 @@ static bool Ensure(AeronCommandBuffer* cmd, int index) {
 	return true;
 }
 
-bool XwVrCockpit_Add(AeronCommandBuffer* cmd, AeronScene3D* scene, int index, const XwRenderView* body) {
+static const XwSnapObject* Player(const XwRenderSnapshot* s) {
+	for (unsigned i = 0; s && i < s->object_count; ++i)
+		if (XwRenderMath_SameObject(s->objects[i].id, s->camera.player))
+			return &s->objects[i];
+	return NULL;
+}
+
+bool XwVrCockpit_Add(AeronCommandBuffer* cmd, AeronScene3D* scene, int index, const XwRenderSnapshot* s,
+					 const XwRenderView* body) {
 	if (index < 0 || index >= COCKPIT_COUNT || !Ensure(cmd, index))
 		return false;
 	/* Model axes are the body eye axes (x right, y down, z forward) in metres
-	 * with the pilot's eye at the origin: world = body_pos + body^T * v. */
+	 * with the pilot's eye at the origin. The cockpit is fixed to the ship,
+	 * not to the game camera: the look views (right grip "12:00 HIGH", rear
+	 * views) turn the camera inside the cockpit. */
 	float rows[9];
 	XwRenderMath_ViewRows(&body->camera, rows);
+	float axes[9]; /* column c = eye axis c in scene space */
+	for (int r = 0; r < 3; ++r)
+		for (int c = 0; c < 3; ++c)
+			axes[r * 3 + c] = rows[c * 3 + r];
+	const XwSnapObject* player = Player(s);
+	if (player) {
+		/* Ship model axes (OPT: x right, y back, z up) -> eye axes:
+		 * right = x, down = -z, forward = -y. */
+		float ship[16];
+		XwRenderMath_ObjectMatrix(player, s->flight_version, body->origin_world, ship);
+		const float scale = s->flight_version == 98 ? AERON_OPT_UNITS_PER_METER : 1.0f;
+		for (int r = 0; r < 3; ++r) {
+			axes[r * 3 + 0] = ship[r * 4 + 0] / scale;
+			axes[r * 3 + 1] = -ship[r * 4 + 2] / scale;
+			axes[r * 3 + 2] = -ship[r * 4 + 1] / scale;
+		}
+	}
 	AeronSceneMeshInstance in;
 	memset(&in, 0, sizeof in);
 	in.mesh = cockpits[index].mesh;
-	const float s = AERON_OPT_UNITS_PER_METER;
+	const float m = AERON_OPT_UNITS_PER_METER;
 	for (int r = 0; r < 3; ++r) {
 		for (int c = 0; c < 3; ++c)
-			in.transform[r * 4 + c] = rows[c * 3 + r] * s;
+			in.transform[r * 4 + c] = axes[r * 3 + c] * m;
 		in.transform[r * 4 + 3] = body->camera.pos[r];
 	}
 	in.transform[15] = 1.0f;
