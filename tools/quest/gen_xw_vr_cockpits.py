@@ -27,6 +27,7 @@ OpenTIE and OpenXWA Quest ports.
 import json
 import math
 import os
+import re
 import shutil
 import struct
 import subprocess
@@ -43,7 +44,7 @@ CRAFTS = {
     "awing": ("a-wing_cockpit.obj", (0.0, 0.56, -0.4)),
     "bwing": ("b-wing_cockpit.obj", (0.0, 4.55, 1.15)),
     "tiefighter": ("tie-fighter_cockpit_vr.obj", (0.0, 0.1, -0.1)),
-    "tieinterceptor": ("tie-interceptor_cockpit_vr.obj", (0.0, 0.1, -0.1)),
+    "tieinterceptor": ("tie-interceptor_cockpit_vr.obj", (0.0, 0.1, -0.1), "tie-interceptor_cockpit"),
     "tiebomber": ("tie-bomber_cockpit_vr.obj", (1.474, 0.1, 1.7152)),
     "gunboat": ("gunboat_cockpit.obj", (0.0, 0.36, 0.98)),
     "falcon": ("yt-1300_cockpit.obj", (10.0, 1.25, 7.64)),
@@ -142,7 +143,8 @@ def to_gltf(p, eye):
 
 
 def convert(name, gamedata, work):
-    obj_name, eye = CRAFTS[name]
+    obj_name, eye = CRAFTS[name][:2]
+    tex_dir = CRAFTS[name][2] if len(CRAFTS[name]) > 2 else None
     obj_path = os.path.join(gamedata, "Models", obj_name)
     verts, uvs, faces, mtllibs = parse_obj(obj_path)
     mats = {}
@@ -245,7 +247,17 @@ def convert(name, gamedata, work):
         if len(prim["pos"]) > 65535:
             raise SystemExit(f"{name}: material {mtl} has too many vertices")
         if mtl not in mat_index:
-            m = mats.get(mtl, {"d": 1.0, "Ke": (0.0, 0.0, 0.0), "Kd": (0.4, 0.4, 0.4)})
+            m = mats.get(mtl)
+            named = re.search(r"_(TEX\d+)\.bmp(_Dark)?$", mtl or "", re.IGNORECASE)
+            if m is None and named and tex_dir:
+                # tie-interceptor_cockpit_vr names most materials after
+                # their texture ("Material014_TEX00013.bmp") without
+                # defining them in its .mtl; Revival draws them untextured.
+                dark = 0.2 if named.group(2) else 0.4
+                m = {"d": 1.0, "Ke": (0.0, 0.0, 0.0), "Kd": (dark, dark, dark),
+                     "map_Kd": f"{tex_dir}/{named.group(1)}.BMP"}
+            if m is None:
+                m = {"d": 1.0, "Ke": (0.0, 0.0, 0.0), "Kd": (0.4, 0.4, 0.4)}
             alpha = m["d"]
             mat = {
                 "name": mtl or "default",
