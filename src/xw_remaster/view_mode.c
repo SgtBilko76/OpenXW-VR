@@ -2,6 +2,7 @@
 #include "xw_remaster/view_mode.h"
 #include "xw_remaster/flight_pipeline.h"
 #include "xw_remaster/presented_frame.h"
+#include "xw_remaster/vr_stereo.h"
 #include "xw_runtime/input/capture.h"
 #include "xw_runtime/input/input_bridge.h"
 #include "xw_runtime/input/keyboard_mapping.h"
@@ -71,6 +72,10 @@ void XwRemasterView_BeginFrame(const AeronInputSnapshot* input) {
 				  world_ready && XwPresentedFrame_Current(s) && output && output->width == w &&
 				  output->height == h;
 	/* Dirtiness survives reversals and pauses until a wholly unsuppressed view completes. */
+	/* Quest stereo: the flat frame is a transparent HUD overlay, so the
+	 * classic 1998 frame must stay hidden even while paused or in menus. */
+	if (!opaque && Flight(s) && XwRemasterVr_StereoRendered() && world_ready && output)
+		opaque = true;
 	bool was_suppressed = XwPresentation_ClassicHardwareSuppressed();
 	XwPresentation_SetModernFlightOpaque(opaque);
 	if (!classic_dirty && (was_suppressed || XwPresentation_ClassicHardwareSuppressed())) {
