@@ -9,7 +9,7 @@
 /* On-screen keyboard for the Quest build. Horizon OS does not show its
  * system keyboard over an immersive app, so while a text field (pilot name)
  * is on screen a key grid is drawn with the app UI and clicked with the
- * controller laser. It opens when the field appears or is clicked, and
+ * controller laser. It opens when the field is clicked with the laser, and
  * closes with Enter/Close or when the field goes away. Keys reach the game
  * as ordinary SDL text/key events.
  *

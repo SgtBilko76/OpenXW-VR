@@ -98,10 +98,8 @@ void XwVrKeyboard_BeginFrame(const AeronInputSnapshot* input) {
 		if (!g_field_seen)
 			Aeron_LogInfo(VR_KEYBOARD_LOG, "text field %d,%d-%d,%d on %dx%d", rect[0], rect[1], rect[2], rect[3],
 						  size[0], size[1]);
-		if (!g_field_seen && !g_dismissed)
-			XwVrKeyboard_SetOpen(true, "text field on screen");
 		g_field_seen = true;
-		/* Laser click into the field reopens it; this click stays the game's. */
+		/* Only a laser click into the field opens it; this click stays the game's. */
 		if (!g_open && !XwSettingsMenu_Open() && (input->mouse.pressed_buttons & AERON_MOUSE_BUTTON_LEFT)) {
 			int x, y;
 			XwInput_CursorPosition(&x, &y);
