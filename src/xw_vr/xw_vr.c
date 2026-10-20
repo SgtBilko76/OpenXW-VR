@@ -52,10 +52,14 @@ enum {
 static const float VR_SCREEN_DISTANCE     = 2.5f;
 static const float VR_SCREEN_WIDTH_MENU   = 3.2f;
 static const float VR_SCREEN_WIDTH_FLIGHT = 4.0f;
-/* Stereo flight: eye resolution as a fraction of the runtime's recommendation,
- * and the distance of the HUD overlay (its angular size matches the game
- * camera, so the distance only sets its stereo depth). */
-static const float VR_EYE_SCALE    = 0.80f;
+/* Stereo flight: eye resolution as a multiple of the runtime's recommendation
+ * (Quest 3: 1680x1760 -> 2240x2344), capped at VR_EYE_MAX_WIDTH so a system
+ * override (Quest Games Optimizer, debug.oculus.textureWidth) that already
+ * raised the recommendation does not push it further; and the distance of
+ * the HUD overlay (its angular size matches the game camera, so the distance
+ * only sets its stereo depth). */
+static const float VR_EYE_SCALE     = 1.3334f;
+static const int   VR_EYE_MAX_WIDTH = 2240;
 static const float VR_HUD_DISTANCE = 3.0f;
 
 typedef enum VrHand { VR_LEFT = 0, VR_RIGHT = 1, VR_HAND_COUNT = 2 } VrHand;
@@ -681,8 +685,20 @@ static int vr_device_created(SDL_GPUDevice* device, AeronExternalPresentTarget* 
 													   XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO, 2, &count, config),
 				  "xrEnumerateViewConfigurationViews") &&
 			count == 2) {
-			g_vr.eye_width  = ((int)((float)config[0].recommendedImageRectWidth * VR_EYE_SCALE) + 7) & ~7;
-			g_vr.eye_height = ((int)((float)config[0].recommendedImageRectHeight * VR_EYE_SCALE) + 7) & ~7;
+			float scale = VR_EYE_SCALE;
+			if ((float)config[0].recommendedImageRectWidth * scale > (float)VR_EYE_MAX_WIDTH) {
+				scale = (float)VR_EYE_MAX_WIDTH / (float)config[0].recommendedImageRectWidth;
+			}
+			int eye_w = (int)((float)config[0].recommendedImageRectWidth * scale);
+			int eye_h = (int)((float)config[0].recommendedImageRectHeight * scale);
+			if (eye_w > (int)config[0].maxImageRectWidth) {
+				eye_w = (int)config[0].maxImageRectWidth;
+			}
+			if (eye_h > (int)config[0].maxImageRectHeight) {
+				eye_h = (int)config[0].maxImageRectHeight;
+			}
+			g_vr.eye_width  = (eye_w + 7) & ~7;
+			g_vr.eye_height = (eye_h + 7) & ~7;
 			for (int eye = 0; eye < 2; ++eye) {
 				XrSwapchainCreateInfo eye_info = swap_info;
 				eye_info.width                 = (uint32_t)g_vr.eye_width;

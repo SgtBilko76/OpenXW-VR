@@ -194,7 +194,7 @@ static void WorldMarkers(AeronCommandBuffer* cmd, AeronRenderPass* pass, int w, 
 }
 
 /* Eye render size relative to the headset's eye images (GPU budget). */
-#define XW_VR_EYE_SCALE 0.65f
+#define XW_VR_EYE_SCALE 0.80f
 
 /* Quest stereo flight: the 3D world once per head-tracked eye straight into
  * the OpenXR eye images, then the HUD/cockpit alone on a transparent

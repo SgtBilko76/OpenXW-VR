@@ -15,8 +15,8 @@ android {
         applicationId 'com.bilko.openxwvr'
         minSdk 29
         targetSdk 32
-        versionCode 2
-        versionName '0.1.1-beta'
+        versionCode 3
+        versionName '0.1.2-beta'
         ndk {
             abiFilters 'arm64-v8a'
         }
