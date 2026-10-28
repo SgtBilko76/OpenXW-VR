@@ -1,5 +1,7 @@
 # OpenXW VR for Meta Quest
 
+**Download, install guide, controls and pictures: [portroyale.online/openxw.html](https://portroyale.online/openxw.html)**
+
 Standalone Meta Quest 3 port of OpenXW (Star Wars: X-Wing) with OpenXR:
 menus on a virtual screen over passthrough, head-tracked stereo 3D space in
 flight (1998 flight engine), 3D cockpits for the X-Wing, Y-Wing, A-Wing and
