@@ -167,7 +167,7 @@ XW_VR_EDITS = [
      "\tvr_set_key(VR_KEY_B, SDL_SCANCODE_UNKNOWN, 0);\n"
      "\tvr_set_key(VR_KEY_X, SDL_SCANCODE_RETURN, menu && g_vr.button_x);\n"),
     ("\tvr_set_key(VR_KEY_MENU, SDL_SCANCODE_ESCAPE, menu && g_vr.menu_tap_frames > 0);\n",
-     "\tvr_set_key(VR_KEY_MENU, SDL_SCANCODE_ESCAPE, !in_flight && g_vr.menu_tap_frames > 0);\n"),
+     "\tvr_set_key(VR_KEY_MENU, SDL_SCANCODE_ESCAPE, !in_flight && g_vr.menu_tap_frames > 0 && !g_vr.menu_tap_opens);\n"),
     ("/* laser + trigger). In text mode B deletes, Y types a space and A confirms */\n"
      "/* with Enter. The right stick is not used for letters (too twitchy).       */\n",
      "/* left laser + trigger). In text mode X confirms with Enter and Y types a */\n"
@@ -211,6 +211,17 @@ XW_VR_EDITS = [
      "\t\tSDL_SetJoystickVirtualAxis(g_vr.pad, SDL_GAMEPAD_AXIS_RIGHTY, 0);\n"
      "\t\tSDL_SetJoystickVirtualAxis(g_vr.pad, SDL_GAMEPAD_AXIS_LEFTX, settings ? vr_axis(menu_stick.x) : 0);\n"
      "\t\tSDL_SetJoystickVirtualAxis(g_vr.pad, SDL_GAMEPAD_AXIS_LEFTY, settings ? vr_axis(-menu_stick.y) : 0);\n"),
+    # Each left Menu tap decides once, when it starts, whether it opens the
+    # OpenXW menu (flying) or types Escape (menus); otherwise the tap that
+    # closed the menu reopened it on its next frame.
+    ("\tint                   menu_long_done, menu_tap_frames;\n",
+     "\tint                   menu_long_done, menu_tap_frames;\n"
+     "\tint                   menu_tap_opens; /* this tap opens the OpenXW menu */\n"),
+    ("\t\t/* Short press: hold Escape / Start for a few frames. */\n"
+     "\t\tg_vr.menu_tap_frames = 4;\n",
+     "\t\t/* Short press: hold Escape / Start for a few frames. */\n"
+     "\t\tg_vr.menu_tap_frames = 4;\n"
+     "\t\tg_vr.menu_tap_opens  = vr_in_flight() && !vr_flight_menu_active();\n"),
     # Left Menu in flight opens the OpenXW settings overlay (which pauses the
     # game) instead of X-Wing's own pause, through the escape action (same
     # path as the right star's "Flight menu"), so saved pad bindings don't
@@ -220,7 +231,7 @@ XW_VR_EDITS = [
      "\tSDL_UnlockJoysticks();\n",
      "\tSDL_SetJoystickVirtualButton(g_vr.pad, SDL_GAMEPAD_BUTTON_START, 0);\n"
      "\tSDL_UnlockJoysticks();\n"
-     "\tif (g_vr.menu_tap_frames > 0) {\n"
+     "\tif (g_vr.menu_tap_frames > 0 && g_vr.menu_tap_opens) {\n"
      "\t\tg_vr.menu_tap_frames = 0;\n"
      "\t\tXwControllerMapping_DispatchCommand(XW_INPUT_ACTION_ESCAPE, true);\n"
      "\t\tXwControllerMapping_DispatchCommand(XW_INPUT_ACTION_ESCAPE, false);\n"

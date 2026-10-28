@@ -199,6 +199,7 @@ static struct {
 	int                   arrow_armed;
 	float                 menu_held_s;
 	int                   menu_long_done, menu_tap_frames;
+	int                   menu_tap_opens; /* this tap opens the OpenXW menu */
 	int                   text_mode_was_on;
 	int                   text_a_was_down, text_b_was_down, text_y_was_down;
 	int                   dial_index, dial_pending, dial_dir_x, dial_dir_y;
@@ -1267,7 +1268,7 @@ static void vr_update_gamepad(int in_flight, float dt) {
 	SDL_SetJoystickVirtualButton(g_vr.pad, SDL_GAMEPAD_BUTTON_BACK, 0);
 	SDL_SetJoystickVirtualButton(g_vr.pad, SDL_GAMEPAD_BUTTON_START, 0);
 	SDL_UnlockJoysticks();
-	if (g_vr.menu_tap_frames > 0) {
+	if (g_vr.menu_tap_frames > 0 && g_vr.menu_tap_opens) {
 		g_vr.menu_tap_frames = 0;
 		XwControllerMapping_DispatchCommand(XW_INPUT_ACTION_ESCAPE, true);
 		XwControllerMapping_DispatchCommand(XW_INPUT_ACTION_ESCAPE, false);
@@ -1397,7 +1398,7 @@ static void vr_update_menu_keys(int in_flight) {
 	vr_set_key(VR_KEY_RSTICK_CLICK, SDL_SCANCODE_UNKNOWN, 0);
 	vr_set_key(VR_KEY_LSTICK_CLICK, SDL_SCANCODE_UNKNOWN, 0);
 	vr_set_key(VR_KEY_LTRIGGER, SDL_SCANCODE_UNKNOWN, 0);
-	vr_set_key(VR_KEY_MENU, SDL_SCANCODE_ESCAPE, !in_flight && g_vr.menu_tap_frames > 0);
+	vr_set_key(VR_KEY_MENU, SDL_SCANCODE_ESCAPE, !in_flight && g_vr.menu_tap_frames > 0 && !g_vr.menu_tap_opens);
 	vr_update_menu_arrows(menu && !g_vr.text_mode, lx, ly);
 }
 
@@ -1497,6 +1498,7 @@ static void vr_update_menu_button(float dt) {
 	if (g_vr.menu_held_s > 0.0f && !g_vr.menu_long_done) {
 		/* Short press: hold Escape / Start for a few frames. */
 		g_vr.menu_tap_frames = 4;
+		g_vr.menu_tap_opens  = vr_in_flight() && !vr_flight_menu_active();
 	}
 	g_vr.menu_held_s    = 0.0f;
 	g_vr.menu_long_done = 0;
