@@ -33,18 +33,18 @@ Edition"). The APK contains no game data.
 Recenter: hold the Meta button on the right controller, or hold the left
 Menu button for one second.
 
-Menus:
+Menus (left controller only; the right controller does nothing in menus):
 
-| Input | Action |
-|---|---|
-| Laser + trigger | Click |
-| Right grip | Right-click |
-| Left stick | Arrow keys |
-| A | Enter |
-| B | Escape |
-| Y | Space |
-| Laser + trigger on a text field | Open the on-screen keyboard (pilot name) |
-| Left Menu, short press | Escape |
+| Input | Game menus | OpenXW menu (settings) |
+|---|---|---|
+| Left controller | Laser pointer | - |
+| Left trigger | Click | Previous page |
+| Left grip | Right-click | Next page |
+| Left stick | Arrow keys | Move the selection |
+| X | Enter | Select |
+| Y | Space | Back |
+| Left Menu, short press | Escape | Close |
+| Laser + trigger on a text field | Open the on-screen keyboard (pilot name) | - |
 
 Flight (the Touch controllers act as one gamepad; every button can be
 remapped in Settings > Controller):
@@ -59,7 +59,7 @@ remapped in Settings > Controller):
 | A / B / X / Y | Next target / nearest fighter / my attacker / match speed |
 | Left stick click | Forward view |
 | Right stick click | Hyperspace |
-| Left Menu, short press | Pause |
+| Left Menu, short press | OpenXW menu (pauses the game) |
 | Left grip (hold) | Radial menu: weapons and power |
 | Right grip (hold) | Radial menu: targets and orders |
 
@@ -76,7 +76,7 @@ fly while it is choosing; everything else keeps working.
 | Down-right | Full throttle | Wingmen: attack my target |
 | Down | Throttle down | Wingmen: cover me |
 | Down-left | S-foils | Rear view (left stick click: forward again) |
-| Left | Cycle firing mode | Flight menu (Escape) |
+| Left | Cycle firing mode | OpenXW menu (pauses) |
 | Up-left | Cycle shield direction | Previous target |
 
 ## Known limitations (beta)

@@ -119,6 +119,102 @@ XW_VR_EDITS = [
      "\tTieInputActions_DispatchController((TieInputAction)command->action, false);\n",
      "\tXwControllerMapping_DispatchCommand((XwInputAction)command->action, true);\n"
      "\tXwControllerMapping_DispatchCommand((XwInputAction)command->action, false);\n"),
+    # Menus, left controller only (Bilko: the right controller is
+    # distracting there). Game menus (Landru screens, pilot keyboard): the
+    # left laser + trigger clicks, left grip right-clicks, X = Enter,
+    # Y = Space, left stick = arrow keys, left Menu = Escape; the pad stays
+    # neutral so the game's joystick cursor doesn't fight the laser. The
+    # OpenXW settings overlay: gamepad only (no laser): left stick = focus,
+    # X = select, Y = back, left trigger / grip = previous / next page.
+    (" * type keys: A = Enter, B = Escape, Y = Space, menu = Escape",
+     " * type keys (left controller only): X = Enter, Y = Space, menu = Escape"),
+    ("\tg_vr.pointer_hand   = VR_RIGHT;\n", "\tg_vr.pointer_hand   = VR_LEFT;\n"),
+    ("\t/* The hand that last pulled its trigger owns the pointer. */\n"
+     "\tfor (int hand = 0; hand < VR_HAND_COUNT; ++hand) {\n"
+     "\t\tif (g_vr.trigger[hand] > 0.65f && !g_vr.trigger_down[hand]) {\n"
+     "\t\t\tg_vr.pointer_hand = (VrHand)hand;\n"
+     "\t\t}\n"
+     "\t}\n"
+     "\tg_vr.pointer_valid = vr_pointer_hit(g_vr.pointer_hand, &x, &y);\n",
+     "\t/* Left laser only, and none in the OpenXW settings overlay (gamepad\n"
+     "\t * only there). */\n"
+     "\tg_vr.pointer_hand  = VR_LEFT;\n"
+     "\tg_vr.pointer_valid = !XwSettingsMenu_Open() && vr_pointer_hit(g_vr.pointer_hand, &x, &y);\n"),
+    ("\tconst int    left_down  = !in_flight && vr_hysteresis(g_vr.mouse_left_down, g_vr.trigger[hand]);\n"
+     "\t/* In flight the right grip targets; in menus it right-clicks. */\n"
+     "\tconst int    right_down = !in_flight && vr_hysteresis(g_vr.mouse_right_down, g_vr.grip[VR_RIGHT]);\n",
+     "\tconst int    laser      = !in_flight && !XwSettingsMenu_Open();\n"
+     "\tconst int    left_down  = laser && vr_hysteresis(g_vr.mouse_left_down, g_vr.trigger[hand]);\n"
+     "\t/* In game menus the left grip right-clicks (in flight it opens the radial menu). */\n"
+     "\tconst int    right_down = laser && vr_hysteresis(g_vr.mouse_right_down, g_vr.grip[VR_LEFT]);\n"),
+    ("\tconst int   menu = !in_flight;\n",
+     "\tconst int   menu = !in_flight && !XwSettingsMenu_Open(); /* settings overlay: pad only */\n"),
+    ("\tvr_set_key(VR_KEY_A, SDL_SCANCODE_RETURN, menu && g_vr.button_a);\n"
+     "\tvr_set_key(VR_KEY_B, SDL_SCANCODE_ESCAPE, menu && !g_vr.text_mode && g_vr.button_b);\n"
+     "\tvr_set_key(VR_KEY_X, SDL_SCANCODE_UNKNOWN, 0);\n",
+     "\tvr_set_key(VR_KEY_A, SDL_SCANCODE_UNKNOWN, 0);\n"
+     "\tvr_set_key(VR_KEY_B, SDL_SCANCODE_UNKNOWN, 0);\n"
+     "\tvr_set_key(VR_KEY_X, SDL_SCANCODE_RETURN, menu && g_vr.button_x);\n"),
+    ("\tvr_set_key(VR_KEY_MENU, SDL_SCANCODE_ESCAPE, menu && g_vr.menu_tap_frames > 0);\n",
+     "\tvr_set_key(VR_KEY_MENU, SDL_SCANCODE_ESCAPE, !in_flight && g_vr.menu_tap_frames > 0);\n"),
+    ("/* laser + trigger). In text mode B deletes, Y types a space and A confirms */\n"
+     "/* with Enter. The right stick is not used for letters (too twitchy).       */\n",
+     "/* left laser + trigger). In text mode X confirms with Enter and Y types a */\n"
+     "/* space; the keyboard's own Delete key erases. The right controller is    */\n"
+     "/* not used in menus.                                                      */\n"),
+    ("\tconst int a_pressed = g_vr.button_a && !g_vr.text_a_was_down;\n"
+     "\tconst int b_pressed = g_vr.button_b && !g_vr.text_b_was_down;\n",
+     "\tconst int a_pressed = g_vr.button_x && !g_vr.text_a_was_down; /* X confirms */\n"
+     "\tconst int b_pressed = 0; /* no delete button: the keyboard's Delete key */\n"),
+    ("\tg_vr.text_a_was_down = g_vr.button_a;\n", "\tg_vr.text_a_was_down = g_vr.button_x;\n"),
+    ("\t\t/* A still types Enter through the menu keys; leave text mode. */\n",
+     "\t\t/* X still types Enter through the menu keys; leave text mode. */\n"),
+    ("\tinfo.subactionPath  = g_vr.hand_path[VR_RIGHT];\n\tvibration.amplitude = 0.25f;\n",
+     "\tinfo.subactionPath  = g_vr.hand_path[VR_LEFT];\n\tvibration.amplitude = 0.25f;\n"),
+    ("\t\t/* Menus own the controllers: report a neutral pad (lever kept). */\n"
+     "\t\tfor (int b = 0; b <= SDL_GAMEPAD_BUTTON_DPAD_RIGHT; ++b) {\n"
+     "\t\t\tSDL_SetJoystickVirtualButton(g_vr.pad, b, 0);\n"
+     "\t\t}\n"
+     "\t\tSDL_SetJoystickVirtualAxis(g_vr.pad, SDL_GAMEPAD_AXIS_RIGHTX, 0);\n"
+     "\t\tSDL_SetJoystickVirtualAxis(g_vr.pad, SDL_GAMEPAD_AXIS_RIGHTY, 0);\n"
+     "\t\tSDL_SetJoystickVirtualAxis(g_vr.pad, SDL_GAMEPAD_AXIS_LEFTX, 0);\n"
+     "\t\tSDL_SetJoystickVirtualAxis(g_vr.pad, SDL_GAMEPAD_AXIS_LEFTY, vr_axis(g_vr.throttle * 2.0f - 1.0f));\n",
+     "\t\t/* Menus. The throttle lever is never reported here: it stays in\n"
+     "\t\t * g_vr.throttle and comes back when flight resumes (reporting it made\n"
+     "\t\t * the settings list scroll forever). Game menus get a neutral pad (the\n"
+     "\t\t * laser is the pointer). The OpenXW settings overlay is gamepad only,\n"
+     "\t\t * left controller: stick = focus, X = select (south), Y = back (east),\n"
+     "\t\t * left trigger / grip = previous / next page (shoulders). */\n"
+     "\t\tconst int        settings   = XwSettingsMenu_Open();\n"
+     "\t\tconst XrVector2f menu_stick = g_vr.stick[VR_LEFT];\n"
+     "\t\tfor (int b = 0; b <= SDL_GAMEPAD_BUTTON_DPAD_RIGHT; ++b) {\n"
+     "\t\t\tSDL_SetJoystickVirtualButton(g_vr.pad, b, 0);\n"
+     "\t\t}\n"
+     "\t\tSDL_SetJoystickVirtualButton(g_vr.pad, SDL_GAMEPAD_BUTTON_SOUTH, settings && g_vr.button_x);\n"
+     "\t\tSDL_SetJoystickVirtualButton(g_vr.pad, SDL_GAMEPAD_BUTTON_EAST, settings && g_vr.button_y);\n"
+     "\t\tSDL_SetJoystickVirtualButton(g_vr.pad, SDL_GAMEPAD_BUTTON_LEFT_SHOULDER,\n"
+     "\t\t\t\t\t\t\t\t\t settings && vr_hysteresis(g_vr.trigger_down[VR_LEFT], g_vr.trigger[VR_LEFT]));\n"
+     "\t\tSDL_SetJoystickVirtualButton(g_vr.pad, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER,\n"
+     "\t\t\t\t\t\t\t\t\t settings && vr_hysteresis(g_vr.grip_down[VR_LEFT], g_vr.grip[VR_LEFT]));\n"
+     "\t\tSDL_SetJoystickVirtualAxis(g_vr.pad, SDL_GAMEPAD_AXIS_RIGHTX, 0);\n"
+     "\t\tSDL_SetJoystickVirtualAxis(g_vr.pad, SDL_GAMEPAD_AXIS_RIGHTY, 0);\n"
+     "\t\tSDL_SetJoystickVirtualAxis(g_vr.pad, SDL_GAMEPAD_AXIS_LEFTX, settings ? vr_axis(menu_stick.x) : 0);\n"
+     "\t\tSDL_SetJoystickVirtualAxis(g_vr.pad, SDL_GAMEPAD_AXIS_LEFTY, settings ? vr_axis(-menu_stick.y) : 0);\n"),
+    # Left Menu in flight opens the OpenXW settings overlay (which pauses the
+    # game) instead of X-Wing's own pause, through the escape action (same
+    # path as the right star's "Flight menu"), so saved pad bindings don't
+    # matter. The tap is consumed so the Escape it would type in menus does
+    # not close the overlay again.
+    ("\tSDL_SetJoystickVirtualButton(g_vr.pad, SDL_GAMEPAD_BUTTON_START, g_vr.menu_tap_frames > 0);\n"
+     "\tSDL_UnlockJoysticks();\n",
+     "\tSDL_SetJoystickVirtualButton(g_vr.pad, SDL_GAMEPAD_BUTTON_START, 0);\n"
+     "\tSDL_UnlockJoysticks();\n"
+     "\tif (g_vr.menu_tap_frames > 0) {\n"
+     "\t\tg_vr.menu_tap_frames = 0;\n"
+     "\t\tXwControllerMapping_DispatchCommand(XW_INPUT_ACTION_ESCAPE, true);\n"
+     "\t\tXwControllerMapping_DispatchCommand(XW_INPUT_ACTION_ESCAPE, false);\n"
+     "\t\tAeron_LogInfo(VR_LOG, \"left Menu: OpenXW menu\");\n"
+     "\t}\n"),
     # Pitch: OpenTIE flips gamepad pitch in its controller mapping, so its VR
     # layer sends stick up as SDL down. X-Wing reads the pad Y like its
     # original joystick (forward = nose down) without a flip, so the plain

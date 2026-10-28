@@ -730,7 +730,7 @@ static int vr_device_created(SDL_GPUDevice* device, AeronExternalPresentTarget* 
 		}
 	}
 	g_vr.screen_width_m = VR_SCREEN_WIDTH_MENU;
-	g_vr.pointer_hand   = VR_RIGHT;
+	g_vr.pointer_hand   = VR_LEFT;
 	vr_create_pad();
 
 	target->format     = format;
@@ -884,13 +884,10 @@ static int vr_pointer_hit(VrHand hand, float* out_x, float* out_y) {
 static void vr_update_pointer(void) {
 	float x, y;
 
-	/* The hand that last pulled its trigger owns the pointer. */
-	for (int hand = 0; hand < VR_HAND_COUNT; ++hand) {
-		if (g_vr.trigger[hand] > 0.65f && !g_vr.trigger_down[hand]) {
-			g_vr.pointer_hand = (VrHand)hand;
-		}
-	}
-	g_vr.pointer_valid = vr_pointer_hit(g_vr.pointer_hand, &x, &y);
+	/* Left laser only, and none in the OpenXW settings overlay (gamepad
+	 * only there). */
+	g_vr.pointer_hand  = VR_LEFT;
+	g_vr.pointer_valid = !XwSettingsMenu_Open() && vr_pointer_hit(g_vr.pointer_hand, &x, &y);
 	if (g_vr.pointer_valid) {
 		g_vr.pointer_x = x;
 		g_vr.pointer_y = y;
@@ -900,9 +897,10 @@ static void vr_update_pointer(void) {
 
 static void vr_update_mouse_buttons(int in_flight) {
 	const VrHand hand       = g_vr.pointer_hand;
-	const int    left_down  = !in_flight && vr_hysteresis(g_vr.mouse_left_down, g_vr.trigger[hand]);
-	/* In flight the right grip targets; in menus it right-clicks. */
-	const int    right_down = !in_flight && vr_hysteresis(g_vr.mouse_right_down, g_vr.grip[VR_RIGHT]);
+	const int    laser      = !in_flight && !XwSettingsMenu_Open();
+	const int    left_down  = laser && vr_hysteresis(g_vr.mouse_left_down, g_vr.trigger[hand]);
+	/* In game menus the left grip right-clicks (in flight it opens the radial menu). */
+	const int    right_down = laser && vr_hysteresis(g_vr.mouse_right_down, g_vr.grip[VR_LEFT]);
 
 	if (left_down != g_vr.mouse_left_down) {
 		if (!left_down || g_vr.pointer_valid) {
@@ -1209,14 +1207,27 @@ static void vr_update_gamepad(int in_flight, float dt) {
 
 	SDL_LockJoysticks();
 	if (!in_flight) {
-		/* Menus own the controllers: report a neutral pad (lever kept). */
+		/* Menus. The throttle lever is never reported here: it stays in
+		 * g_vr.throttle and comes back when flight resumes (reporting it made
+		 * the settings list scroll forever). Game menus get a neutral pad (the
+		 * laser is the pointer). The OpenXW settings overlay is gamepad only,
+		 * left controller: stick = focus, X = select (south), Y = back (east),
+		 * left trigger / grip = previous / next page (shoulders). */
+		const int        settings   = XwSettingsMenu_Open();
+		const XrVector2f menu_stick = g_vr.stick[VR_LEFT];
 		for (int b = 0; b <= SDL_GAMEPAD_BUTTON_DPAD_RIGHT; ++b) {
 			SDL_SetJoystickVirtualButton(g_vr.pad, b, 0);
 		}
+		SDL_SetJoystickVirtualButton(g_vr.pad, SDL_GAMEPAD_BUTTON_SOUTH, settings && g_vr.button_x);
+		SDL_SetJoystickVirtualButton(g_vr.pad, SDL_GAMEPAD_BUTTON_EAST, settings && g_vr.button_y);
+		SDL_SetJoystickVirtualButton(g_vr.pad, SDL_GAMEPAD_BUTTON_LEFT_SHOULDER,
+									 settings && vr_hysteresis(g_vr.trigger_down[VR_LEFT], g_vr.trigger[VR_LEFT]));
+		SDL_SetJoystickVirtualButton(g_vr.pad, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER,
+									 settings && vr_hysteresis(g_vr.grip_down[VR_LEFT], g_vr.grip[VR_LEFT]));
 		SDL_SetJoystickVirtualAxis(g_vr.pad, SDL_GAMEPAD_AXIS_RIGHTX, 0);
 		SDL_SetJoystickVirtualAxis(g_vr.pad, SDL_GAMEPAD_AXIS_RIGHTY, 0);
-		SDL_SetJoystickVirtualAxis(g_vr.pad, SDL_GAMEPAD_AXIS_LEFTX, 0);
-		SDL_SetJoystickVirtualAxis(g_vr.pad, SDL_GAMEPAD_AXIS_LEFTY, vr_axis(g_vr.throttle * 2.0f - 1.0f));
+		SDL_SetJoystickVirtualAxis(g_vr.pad, SDL_GAMEPAD_AXIS_LEFTX, settings ? vr_axis(menu_stick.x) : 0);
+		SDL_SetJoystickVirtualAxis(g_vr.pad, SDL_GAMEPAD_AXIS_LEFTY, settings ? vr_axis(-menu_stick.y) : 0);
 		SDL_SetJoystickVirtualAxis(g_vr.pad, SDL_GAMEPAD_AXIS_LEFT_TRIGGER, vr_trigger_axis(0.0f));
 		SDL_SetJoystickVirtualAxis(g_vr.pad, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER, vr_trigger_axis(0.0f));
 		SDL_UnlockJoysticks();
@@ -1244,8 +1255,14 @@ static void vr_update_gamepad(int in_flight, float dt) {
 	SDL_SetJoystickVirtualButton(g_vr.pad, SDL_GAMEPAD_BUTTON_GUIDE, 0);
 	SDL_SetJoystickVirtualButton(g_vr.pad, SDL_GAMEPAD_BUTTON_RIGHT_STICK, g_vr.stick_click[VR_LEFT]);
 	SDL_SetJoystickVirtualButton(g_vr.pad, SDL_GAMEPAD_BUTTON_BACK, 0);
-	SDL_SetJoystickVirtualButton(g_vr.pad, SDL_GAMEPAD_BUTTON_START, g_vr.menu_tap_frames > 0);
+	SDL_SetJoystickVirtualButton(g_vr.pad, SDL_GAMEPAD_BUTTON_START, 0);
 	SDL_UnlockJoysticks();
+	if (g_vr.menu_tap_frames > 0) {
+		g_vr.menu_tap_frames = 0;
+		XwControllerMapping_DispatchCommand(XW_INPUT_ACTION_ESCAPE, true);
+		XwControllerMapping_DispatchCommand(XW_INPUT_ACTION_ESCAPE, false);
+		Aeron_LogInfo(VR_LOG, "left Menu: OpenXW menu");
+	}
 }
 
 /* ------------------------------------------------------------------------ */
@@ -1254,8 +1271,9 @@ static void vr_update_gamepad(int in_flight, float dt) {
 /* Horizon OS refuses to open the system keyboard while an immersive app is */
 /* running, so clicking a text field with the laser turns on text mode,     */
 /* which shows the app's own on-screen keyboard (src/xw_app/vr_keyboard.c, */
-/* laser + trigger). In text mode B deletes, Y types a space and A confirms */
-/* with Enter. The right stick is not used for letters (too twitchy).       */
+/* left laser + trigger). In text mode X confirms with Enter and Y types a */
+/* space; the keyboard's own Delete key erases. The right controller is    */
+/* not used in menus.                                                      */
 /* (Shared with OpenTIE-VR; see tools/quest/gen_xw_vr.py.)                   */
 
 /* Typed characters reach the game as SDL text events (the string must stay
@@ -1280,7 +1298,7 @@ static void vr_text_pulse(void) {
 	XrHapticVibration  vibration = { XR_TYPE_HAPTIC_VIBRATION };
 
 	info.action         = g_vr.act_haptic;
-	info.subactionPath  = g_vr.hand_path[VR_RIGHT];
+	info.subactionPath  = g_vr.hand_path[VR_LEFT];
 	vibration.amplitude = 0.25f;
 	vibration.duration  = 15000000; /* 15 ms */
 	vibration.frequency = XR_FREQUENCY_UNSPECIFIED;
@@ -1289,11 +1307,11 @@ static void vr_text_pulse(void) {
 
 static void vr_update_text_entry(int menu, float dt) {
 	(void)dt;
-	const int a_pressed = g_vr.button_a && !g_vr.text_a_was_down;
-	const int b_pressed = g_vr.button_b && !g_vr.text_b_was_down;
+	const int a_pressed = g_vr.button_x && !g_vr.text_a_was_down; /* X confirms */
+	const int b_pressed = 0; /* no delete button: the keyboard's Delete key */
 	const int y_pressed = g_vr.button_y && !g_vr.text_y_was_down;
 
-	g_vr.text_a_was_down = g_vr.button_a;
+	g_vr.text_a_was_down = g_vr.button_x;
 	g_vr.text_b_was_down = g_vr.button_b;
 	g_vr.text_y_was_down = g_vr.button_y;
 
@@ -1323,7 +1341,7 @@ static void vr_update_text_entry(int menu, float dt) {
 		g_vr.dial_pending = 0;
 	}
 	if (a_pressed) {
-		/* A still types Enter through the menu keys; leave text mode. */
+		/* X still types Enter through the menu keys; leave text mode. */
 		g_vr.text_mode    = 0;
 		g_vr.dial_pending = 0;
 		Aeron_LogInfo(VR_LOG, "text entry off (Enter)");
@@ -1353,23 +1371,23 @@ static void vr_update_menu_arrows(int enabled, float lx, float ly) {
 
 /* Menus (concourse, briefing, options, and in a mission the hangar and the
  * Escape options screen) have no gamepad navigation, so there the buttons
- * type keys: A = Enter, B = Escape, Y = Space, menu = Escape (a laser
+ * type keys (left controller only): X = Enter, Y = Space, menu = Escape (a laser
  * click on a text field opens the keyboard, vr_update_text_entry),
  * left stick = arrows. While
  * flying nothing is typed; see vr_update_gamepad. */
 static void vr_update_menu_keys(int in_flight) {
-	const int   menu = !in_flight;
+	const int   menu = !in_flight && !XwSettingsMenu_Open(); /* settings overlay: pad only */
 	const float lx   = g_vr.stick[VR_LEFT].x;
 	const float ly   = g_vr.stick[VR_LEFT].y;
 
-	vr_set_key(VR_KEY_A, SDL_SCANCODE_RETURN, menu && g_vr.button_a);
-	vr_set_key(VR_KEY_B, SDL_SCANCODE_ESCAPE, menu && !g_vr.text_mode && g_vr.button_b);
-	vr_set_key(VR_KEY_X, SDL_SCANCODE_UNKNOWN, 0);
+	vr_set_key(VR_KEY_A, SDL_SCANCODE_UNKNOWN, 0);
+	vr_set_key(VR_KEY_B, SDL_SCANCODE_UNKNOWN, 0);
+	vr_set_key(VR_KEY_X, SDL_SCANCODE_RETURN, menu && g_vr.button_x);
 	vr_set_key(VR_KEY_Y, SDL_SCANCODE_SPACE, menu && !g_vr.text_mode && g_vr.button_y);
 	vr_set_key(VR_KEY_RSTICK_CLICK, SDL_SCANCODE_UNKNOWN, 0);
 	vr_set_key(VR_KEY_LSTICK_CLICK, SDL_SCANCODE_UNKNOWN, 0);
 	vr_set_key(VR_KEY_LTRIGGER, SDL_SCANCODE_UNKNOWN, 0);
-	vr_set_key(VR_KEY_MENU, SDL_SCANCODE_ESCAPE, menu && g_vr.menu_tap_frames > 0);
+	vr_set_key(VR_KEY_MENU, SDL_SCANCODE_ESCAPE, !in_flight && g_vr.menu_tap_frames > 0);
 	vr_update_menu_arrows(menu && !g_vr.text_mode, lx, ly);
 }
 
