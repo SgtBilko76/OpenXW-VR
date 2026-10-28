@@ -120,7 +120,8 @@ XW_VR_EDITS = [
      "\tXwControllerMapping_DispatchCommand((XwInputAction)command->action, true);\n"
      "\tXwControllerMapping_DispatchCommand((XwInputAction)command->action, false);\n"),
     # Menus, left controller only (Bilko: the right controller is
-    # distracting there). Game menus (Landru screens, pilot keyboard): the
+    # distracting there), except that in the main menus (outside a mission)
+    # either controller is the mouse. Game menus (Landru screens, pilot keyboard): the
     # left laser + trigger clicks, left grip right-clicks, X = Enter,
     # Y = Space, left stick = arrow keys, left Menu = Escape; the pad stays
     # neutral so the game's joystick cursor doesn't fight the laser. The
@@ -136,17 +137,27 @@ XW_VR_EDITS = [
      "\t\t}\n"
      "\t}\n"
      "\tg_vr.pointer_valid = vr_pointer_hit(g_vr.pointer_hand, &x, &y);\n",
-     "\t/* Left laser only, and none in the OpenXW settings overlay (gamepad\n"
-     "\t * only there). */\n"
-     "\tg_vr.pointer_hand  = VR_LEFT;\n"
+     "\t/* No laser in the OpenXW settings overlay (gamepad only there). In the\n"
+     "\t * main menus either controller is the mouse (the hand that last pulled\n"
+     "\t * its trigger); in a mission only the left one. */\n"
+     "\tif (vr_in_flight()) {\n"
+     "\t\tg_vr.pointer_hand = VR_LEFT;\n"
+     "\t} else {\n"
+     "\t\tfor (int hand = 0; hand < VR_HAND_COUNT; ++hand) {\n"
+     "\t\t\tif (g_vr.trigger[hand] > 0.65f && !g_vr.trigger_down[hand]) {\n"
+     "\t\t\t\tg_vr.pointer_hand = (VrHand)hand;\n"
+     "\t\t\t}\n"
+     "\t\t}\n"
+     "\t}\n"
      "\tg_vr.pointer_valid = !XwSettingsMenu_Open() && vr_pointer_hit(g_vr.pointer_hand, &x, &y);\n"),
     ("\tconst int    left_down  = !in_flight && vr_hysteresis(g_vr.mouse_left_down, g_vr.trigger[hand]);\n"
      "\t/* In flight the right grip targets; in menus it right-clicks. */\n"
      "\tconst int    right_down = !in_flight && vr_hysteresis(g_vr.mouse_right_down, g_vr.grip[VR_RIGHT]);\n",
      "\tconst int    laser      = !in_flight && !XwSettingsMenu_Open();\n"
      "\tconst int    left_down  = laser && vr_hysteresis(g_vr.mouse_left_down, g_vr.trigger[hand]);\n"
-     "\t/* In game menus the left grip right-clicks (in flight it opens the radial menu). */\n"
-     "\tconst int    right_down = laser && vr_hysteresis(g_vr.mouse_right_down, g_vr.grip[VR_LEFT]);\n"),
+     "\t/* In game menus the laser hand's grip right-clicks (in flight the grips\n"
+     "\t * open the radial menus). */\n"
+     "\tconst int    right_down = laser && vr_hysteresis(g_vr.mouse_right_down, g_vr.grip[hand]);\n"),
     ("\tconst int   menu = !in_flight;\n",
      "\tconst int   menu = !in_flight && !XwSettingsMenu_Open(); /* settings overlay: pad only */\n"),
     ("\tvr_set_key(VR_KEY_A, SDL_SCANCODE_RETURN, menu && g_vr.button_a);\n"

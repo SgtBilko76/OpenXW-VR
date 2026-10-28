@@ -33,13 +33,14 @@ Edition"). The APK contains no game data.
 Recenter: hold the Meta button on the right controller, or hold the left
 Menu button for one second.
 
-Menus (left controller only; the right controller does nothing in menus):
+Menus (left controller; in the main menus the right controller also works
+as the mouse, in a mission it does nothing in menus):
 
 | Input | Game menus | OpenXW menu (settings) |
 |---|---|---|
-| Left controller | Laser pointer | - |
-| Left trigger | Click | Previous page |
-| Left grip | Right-click | Next page |
+| Laser | Left controller (main menus: either) | - |
+| Trigger | Click (laser hand) | Left: previous page |
+| Grip | Right-click (laser hand) | Left: next page |
 | Left stick | Arrow keys | Move the selection |
 | X | Enter | Select |
 | Y | Space | Back |

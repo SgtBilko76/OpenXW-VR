@@ -884,9 +884,18 @@ static int vr_pointer_hit(VrHand hand, float* out_x, float* out_y) {
 static void vr_update_pointer(void) {
 	float x, y;
 
-	/* Left laser only, and none in the OpenXW settings overlay (gamepad
-	 * only there). */
-	g_vr.pointer_hand  = VR_LEFT;
+	/* No laser in the OpenXW settings overlay (gamepad only there). In the
+	 * main menus either controller is the mouse (the hand that last pulled
+	 * its trigger); in a mission only the left one. */
+	if (vr_in_flight()) {
+		g_vr.pointer_hand = VR_LEFT;
+	} else {
+		for (int hand = 0; hand < VR_HAND_COUNT; ++hand) {
+			if (g_vr.trigger[hand] > 0.65f && !g_vr.trigger_down[hand]) {
+				g_vr.pointer_hand = (VrHand)hand;
+			}
+		}
+	}
 	g_vr.pointer_valid = !XwSettingsMenu_Open() && vr_pointer_hit(g_vr.pointer_hand, &x, &y);
 	if (g_vr.pointer_valid) {
 		g_vr.pointer_x = x;
@@ -899,8 +908,9 @@ static void vr_update_mouse_buttons(int in_flight) {
 	const VrHand hand       = g_vr.pointer_hand;
 	const int    laser      = !in_flight && !XwSettingsMenu_Open();
 	const int    left_down  = laser && vr_hysteresis(g_vr.mouse_left_down, g_vr.trigger[hand]);
-	/* In game menus the left grip right-clicks (in flight it opens the radial menu). */
-	const int    right_down = laser && vr_hysteresis(g_vr.mouse_right_down, g_vr.grip[VR_LEFT]);
+	/* In game menus the laser hand's grip right-clicks (in flight the grips
+	 * open the radial menus). */
+	const int    right_down = laser && vr_hysteresis(g_vr.mouse_right_down, g_vr.grip[hand]);
 
 	if (left_down != g_vr.mouse_left_down) {
 		if (!left_down || g_vr.pointer_valid) {
