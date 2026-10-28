@@ -70,6 +70,12 @@ static void XwControllerMapping_Dispatch(XwInputAction action, bool pressed) {
 	XwControllerMapping_DispatchAction(action, pressed);
 }
 
+void XwControllerMapping_DispatchCommand(XwInputAction action, bool pressed) {
+	if ((unsigned)action >= XW_INPUT_ACTION_COUNT || action == XW_INPUT_ACTION_NONE)
+		return;
+	XwControllerMapping_Dispatch(action, pressed);
+}
+
 const AeronControllerSnapshot* XwControllerMapping_Resolve(const XwControllerModel* model,
 														   const AeronInputSnapshot* input,
 														   uint32_t preferred) {

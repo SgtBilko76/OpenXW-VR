@@ -12,12 +12,11 @@ used by the OpenTIE-VR and OpenXWA-VR ports:
   physical left stick  -> pad rightx (yaw) / righty (pitch)
   triggers             -> lefttrigger / righttrigger
   A / B / X / Y        -> south / east / west / north
-  right grip           -> rightshoulder (hold: rear view)
   stick clicks         -> swapped too: left click = rightstick, right = leftstick
   left Menu (tap)      -> start
-  left grip held (shift layer): A/B/X/Y -> dpaddown/dpadright/dpadleft/dpadup,
-                       right stick click -> guide, left stick click -> back,
-                       left trigger -> leftshoulder
+  The grips open the VR radial menus (src/xw_vr/vr_radial_menu.c, generated
+  by tools/quest/gen_xw_vr.py), which run the remaining actions directly;
+  they are not part of the pad.
 
 Usage: quest_config.py <staged resources/config.yaml>
 Only the Quest APK is affected; desktop builds keep the upstream defaults.
@@ -41,17 +40,9 @@ QUEST_GAMEPAD_DEFAULTS = """\
       target_nearest_fighter: east
       target_my_attacker: west
       match_speed: north
-      hold_view_rear: rightshoulder
       view_forward: rightstick
       hyperspace: leftstick
       pause: start
-      throttle_full: dpaddown
-      throttle_down: dpadright
-      target_clear: dpadleft
-      escape: dpadup
-      cycle_weapon_group: back
-      cycle_shield_mode: guide
-      cycle_weapon_firing_mode: leftshoulder
 """
 
 

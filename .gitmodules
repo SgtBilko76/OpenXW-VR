@@ -3,8 +3,7 @@
 	url = https://github.com/elyosh/landru.git
 [submodule "aeron"]
 	path = aeron
-	url = https://github.com/SgtBilko76/Aeron.git
-	branch = quest-vr-xw
+	url = https://github.com/elyosh/Aeron.git
 [submodule "src/imuse"]
 	path = src/imuse
 	url = https://github.com/elyosh/imuse.git

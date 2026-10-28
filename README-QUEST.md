@@ -3,9 +3,10 @@
 **Download, install guide, controls and pictures: [portroyale.online/openxw.html](https://portroyale.online/openxw.html)**
 
 Standalone Meta Quest 3 port of OpenXW (Star Wars: X-Wing) with OpenXR:
-menus on a virtual screen over passthrough, head-tracked stereo 3D space in
+menus on a virtual screen, head-tracked stereo 3D space in
 flight (1998 flight engine), 3D cockpits for the X-Wing, Y-Wing, A-Wing and
-B-Wing with the original instruments, and Touch controller support.
+B-Wing with the original instruments, and Touch controller support with
+radial menus on both grips.
 
 You need your own copy of X-Wing (Steam "STAR WARS X-Wing Special
 Edition"). The APK contains no game data.
@@ -50,20 +51,33 @@ remapped in Settings > Controller):
 
 | Input | Action |
 |---|---|
-| Left stick | Pitch and yaw |
+| Left stick | Pitch and yaw (up = nose down, like a flight stick) |
 | Right stick left/right | Roll |
 | Right stick up/down | Throttle lever |
 | Right trigger | Fire |
 | Left trigger (hold) | Target / roll modifier |
 | A / B / X / Y | Next target / nearest fighter / my attacker / match speed |
-| Right grip (hold) | Rear view |
 | Left stick click | Forward view |
 | Right stick click | Hyperspace |
 | Left Menu, short press | Pause |
+| Left grip (hold) | Radial menu: weapons and power |
+| Right grip (hold) | Radial menu: targets and orders |
 
-Left grip held (shift layer): A full throttle, B throttle down, X clear
-target, Y Escape, left trigger cycle firing mode, left stick click cycle
-weapon group, right stick click cycle shields.
+Radial menus: hold a grip and a star of eight commands appears above that
+controller. Tilt the same hand's stick towards a command and release the
+grip to run it; release with the stick centred to cancel. The stick doesn't
+fly while it is choosing; everything else keeps working.
+
+| Direction | Left (weapons and power) | Right (targets and orders) |
+|---|---|---|
+| Up | Laser recharge rate | Clear target |
+| Up-right | Shield recharge rate | Target in sights |
+| Right | Cycle weapon group | Map |
+| Down-right | Full throttle | Wingmen: attack my target |
+| Down | Throttle down | Wingmen: cover me |
+| Down-left | S-foils | Rear view (left stick click: forward again) |
+| Left | Cycle firing mode | Flight menu (Escape) |
+| Up-left | Cycle shield direction | Previous target |
 
 ## Known limitations (beta)
 

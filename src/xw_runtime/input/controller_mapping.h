@@ -12,6 +12,9 @@ int XwControllerMapping_Axis(XwInputAxis axis);
 uint16_t XwControllerMapping_Modifiers(void);
 uint16_t XwControllerMapping_ReadKey(void);
 void XwControllerMapping_ReleaseCommands(void);
+/* Runs `action` as if a pad button bound to it changed state (Quest VR radial
+ * menus). Same thread as XwControllerMapping_Update. */
+void XwControllerMapping_DispatchCommand(XwInputAction action, bool pressed);
 const AeronControllerSnapshot* XwControllerMapping_Resolve(const XwControllerModel* model,
 														   const AeronInputSnapshot* input,
 														   uint32_t preferred);

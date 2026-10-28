@@ -5,7 +5,6 @@
     <uses-feature android:name="android.hardware.vulkan.level" android:version="0" android:required="true" />
     <uses-feature android:name="android.hardware.vulkan.version" android:version="0x401000" android:required="true" />
     <uses-feature android:name="android.hardware.vr.headtracking" android:version="1" android:required="false" />
-    <uses-feature android:name="com.oculus.feature.PASSTHROUGH" android:required="false" />
     <!-- Declared so the launcher does not block start-up while controllers sleep. -->
     <uses-feature android:name="oculus.software.handtracking" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />

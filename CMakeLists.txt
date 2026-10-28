@@ -895,6 +895,8 @@ set(XW_APP_SOURCES
     src/xw_app/vr_keyboard.c
     src/xw_app/test_driver.c
     src/xw_vr/xw_vr.c
+    src/xw_vr/vr_draw.c
+    src/xw_vr/vr_radial_menu.c
 )
 set(XW_APP_HEADERS
     src/xw_app/settings/audio_page.h

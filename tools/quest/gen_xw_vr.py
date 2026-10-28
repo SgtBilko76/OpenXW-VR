@@ -1,20 +1,26 @@
 #!/usr/bin/env python3
 """Generate the OpenXW Quest VR host from OpenTIE-VR's.
 
-src/xw_vr/xw_vr.c         <- ~/Projekte/OpenTIE/src/tie_vr/tie_vr.c
-src/xw_vr/xw_vr.h         <- ~/Projekte/OpenTIE/src/tie_vr/tie_vr.h
-src/xw_remaster/vr_stereo.{c,h} <- ~/Projekte/OpenTIE/src/tie_remaster/vr_stereo.{c,h}
+src/xw_vr/xw_vr.c         <- OpenTIE-VR src/tie_vr/tie_vr.c
+src/xw_vr/xw_vr.h         <- OpenTIE-VR src/tie_vr/tie_vr.h
+src/xw_vr/vr_draw.{c,h}, vr_font.h, vr_radial_menu.{c,h}
+                          <- OpenTIE-VR src/tie_vr/ (radial menus; the
+                             command table is X-Wing's, see RADIAL_COMMANDS)
+src/xw_remaster/vr_stereo.{c,h} <- OpenTIE-VR src/tie_remaster/vr_stereo.{c,h}
 
 The OpenXR session, layers, laser pointer, recenter and virtual gamepad are
 engine-level code shared by the Totally Games ports (OpenXWA-VR -> OpenTIE-VR
--> OpenXW-VR); only the game hooks differ. Re-run after pulling VR fixes into
-OpenTIE-VR. Hand edits belong in the tables below so they survive
-regeneration.
+-> OpenXW-VR); only the game hooks differ. The source is pinned to OpenTIE-VR
+commit TIE_BASE (read with `git show`, so that checkout may be on any commit);
+move it to pull later VR fixes. Hand edits belong in the tables below so they
+survive regeneration.
 """
 import pathlib
 import re
+import subprocess
 
-TIE = pathlib.Path.home() / "Projekte/OpenTIE/src"
+TIE_REPO = pathlib.Path.home() / "Projekte/OpenTIE-VR"
+TIE_BASE = "6c20674"  # OpenTIE VR 0.1.7-beta: radial menus, no passthrough
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 OUT = ROOT / "src"
 
@@ -24,6 +30,7 @@ RENAMES = [
     ("tie_vr/tie_vr.h", "xw_vr/xw_vr.h"),
     ("tie_remaster/vr_stereo.h", "xw_remaster/vr_stereo.h"),
     ("src/tie_vr", "src/xw_vr"),
+    ("tie_vr/vr_", "xw_vr/vr_"),
     ("TIE_REMASTER_VR_STEREO_H", "XW_REMASTER_VR_STEREO_H"),
     ("TIE_VR_COCKPIT_PANELS_H", "XW_VR_COCKPIT_PANELS_H"),
     ("TIE_VR_H", "XW_VR_H"),
@@ -73,6 +80,82 @@ XW_VR_EDITS = [
      "static int vr_flight_menu_active(void) {\n"
      "\treturn !XwFlightSim_IsPlayerControl() || XwSettingsMenu_Open();\n"
      "}"),
+    # 0.1.2: sharper stereo flight (eye images 4/3 of the runtime
+    # recommendation, capped at 2240 wide).
+    ("/* Stereo flight: eye resolution as a fraction of the runtime's recommendation,\n"
+     " * and the distance of the HUD overlay (its angular size matches the game\n"
+     " * camera, so the distance only sets its stereo depth). */\n"
+     "static const float VR_EYE_SCALE    = 0.80f;\n",
+     "/* Stereo flight: eye resolution as a multiple of the runtime's recommendation\n"
+     " * (Quest 3: 1680x1760 -> 2240x2344), capped at VR_EYE_MAX_WIDTH so a system\n"
+     " * override (Quest Games Optimizer, debug.oculus.textureWidth) that already\n"
+     " * raised the recommendation does not push it further; and the distance of\n"
+     " * the HUD overlay (its angular size matches the game camera, so the distance\n"
+     " * only sets its stereo depth). */\n"
+     "static const float VR_EYE_SCALE     = 1.3334f;\n"
+     "static const int   VR_EYE_MAX_WIDTH = 2240;\n"),
+    ("\t\t\tg_vr.eye_width  = ((int)((float)config[0].recommendedImageRectWidth * VR_EYE_SCALE) + 7) & ~7;\n"
+     "\t\t\tg_vr.eye_height = ((int)((float)config[0].recommendedImageRectHeight * VR_EYE_SCALE) + 7) & ~7;\n",
+     "\t\t\tfloat scale = VR_EYE_SCALE;\n"
+     "\t\t\tif ((float)config[0].recommendedImageRectWidth * scale > (float)VR_EYE_MAX_WIDTH) {\n"
+     "\t\t\t\tscale = (float)VR_EYE_MAX_WIDTH / (float)config[0].recommendedImageRectWidth;\n"
+     "\t\t\t}\n"
+     "\t\t\tint eye_w = (int)((float)config[0].recommendedImageRectWidth * scale);\n"
+     "\t\t\tint eye_h = (int)((float)config[0].recommendedImageRectHeight * scale);\n"
+     "\t\t\tif (eye_w > (int)config[0].maxImageRectWidth) {\n"
+     "\t\t\t\teye_w = (int)config[0].maxImageRectWidth;\n"
+     "\t\t\t}\n"
+     "\t\t\tif (eye_h > (int)config[0].maxImageRectHeight) {\n"
+     "\t\t\t\teye_h = (int)config[0].maxImageRectHeight;\n"
+     "\t\t\t}\n"
+     "\t\t\tg_vr.eye_width  = (eye_w + 7) & ~7;\n"
+     "\t\t\tg_vr.eye_height = (eye_h + 7) & ~7;\n"),
+    # Radial menus: X-Wing has no action dispatcher of its own, so the commands
+    # go through the controller mapping's (same queue and hold logic as a pad
+    # button bound to the action).
+    ('#include "tie_runtime/input/actions.h"\n',
+     '#include "xw_runtime/input/actions.h"\n#include "xw_runtime/input/controller_mapping.h"\n'),
+    ("\tTieInputActions_DispatchController((TieInputAction)command->action, true);\n"
+     "\tTieInputActions_DispatchController((TieInputAction)command->action, false);\n",
+     "\tXwControllerMapping_DispatchCommand((XwInputAction)command->action, true);\n"
+     "\tXwControllerMapping_DispatchCommand((XwInputAction)command->action, false);\n"),
+    # Pitch: OpenTIE flips gamepad pitch in its controller mapping, so its VR
+    # layer sends stick up as SDL down. X-Wing reads the pad Y like its
+    # original joystick (forward = nose down) without a flip, so the plain
+    # axis already gives the same feel: stick up = nose down.
+    ("\t\t\t\t\t\t\t   g_vr.radial[VR_LEFT].visible ? 0 : vr_axis(right.y)); /* inverted pitch: stick up = SDL down */\n",
+     "\t\t\t\t\t\t\t   g_vr.radial[VR_LEFT].visible ? 0 : vr_axis(-right.y)); /* SDL: up is negative; X-Wing: stick up = nose down */\n"),
+]
+
+# vr_radial_menu.c: X-Wing's commands (same positions as OpenTIE where the
+# game has the same command). The right grip used to hold the rear view; that
+# moved into the right star (left stick click = forward view again).
+RADIAL_COMMANDS = [
+    ('#include "tie_runtime/input/actions.h"\n', '#include "xw_runtime/input/actions.h"\n'),
+    ("\t\t{ \"Beam on/off\", TIE_INPUT_ACTION_TOGGLE_BEAM },\n",
+     "\t\t{ \"S-foils\", TIE_INPUT_ACTION_TOGGLE_S_FOILS },\n"),
+    ("\t\t{ \"Components\", TIE_INPUT_ACTION_TARGET_COMPONENT_NEXT },\n",
+     "\t\t{ \"In sights\", TIE_INPUT_ACTION_AUTO_TARGET },\n"),
+    ("\t\t{ \"Mission goals\", TIE_INPUT_ACTION_INFO_GOALS },\n",
+     "\t\t{ \"Rear view\", TIE_INPUT_ACTION_VIEW_REAR },\n"),
+    ("\t\t{ \"Its attacker\", TIE_INPUT_ACTION_TARGET_ATTACKER_CHAIN },\n",
+     "\t\t{ \"Prev target\", TIE_INPUT_ACTION_TARGET_PREV },\n"),
+    (" * direction up-left, components up-right, wingmen at the bottom). */\n",
+     " * direction up-left, wingmen at the bottom); X-Wing's own commands (S-foils,\n"
+     " * target in sights, rear view, previous target) take the places of TIE\n"
+     " * Fighter's beam weapon, components, mission goals and target's attacker. */\n"),
+    ("\t/* Right: targeting, wingmen, goals and the flight menu. The high-angle\n"
+     "\t * view is left out on purpose: it has no use in VR. */\n",
+     "\t/* Right: targeting, wingmen, rear view and the flight menu. The rear view\n"
+     "\t * stays until the left stick click (forward view). */\n"),
+]
+
+# Generic renames for vr_radial_menu.c after RADIAL_COMMANDS.
+RADIAL_RENAMES = [
+    ("TieInputAction", "XwInputAction"),
+    ("tie_runtime/input/actions.h", "xw_runtime/input/actions.h"),
+    ("tie_vr.c", "xw_vr.c"),
+    ("TIE_INPUT_ACTION_", "XW_INPUT_ACTION_"),
 ]
 
 # X-Wing has no 3D cockpit views yet: an empty view table keeps the shared
@@ -111,6 +194,18 @@ static inline const XwVrCockpitView* XwVrCockpit_FindView(const char* view_name)
 """
 
 
+def tie(path: str) -> str:
+    return subprocess.run(["git", "-C", str(TIE_REPO), "show", f"{TIE_BASE}:src/{path}"],
+                          check=True, capture_output=True, text=True).stdout
+
+
+def no_tie(text: str, name: str) -> str:
+    leftovers = sorted(set(re.findall(r"\b(?:Tie|TIE_|tie_)\w*", text)))
+    if leftovers:
+        raise SystemExit(f"{name} still references OpenTIE symbols: {leftovers}")
+    return text
+
+
 def rename(text: str) -> str:
     for old, new in RENAMES:
         text = text.replace(old, new)
@@ -133,16 +228,20 @@ def write(rel: str, text: str) -> None:
 
 
 def main() -> None:
-    vr_c = apply((TIE / "tie_vr/tie_vr.c").read_text(), XW_VR_EDITS, "tie_vr.c")
-    vr_c = rename(vr_c)
-    leftovers = sorted(set(re.findall(r"\b(?:Tie|TIE_|tie_)\w*", vr_c)))
-    if leftovers:
-        raise SystemExit(f"xw_vr.c still references OpenTIE symbols: {leftovers}")
+    vr_c = no_tie(rename(apply(tie("tie_vr/tie_vr.c"), XW_VR_EDITS, "tie_vr.c")), "xw_vr.c")
     write("xw_vr/xw_vr.c", vr_c)
-    write("xw_vr/xw_vr.h", rename((TIE / "tie_vr/tie_vr.h").read_text()))
+    write("xw_vr/xw_vr.h", no_tie(rename(tie("tie_vr/tie_vr.h")), "xw_vr.h"))
     write("xw_vr/xw_vr_cockpit_panels.h", COCKPIT_PANELS_H)
-    write("xw_remaster/vr_stereo.h", rename((TIE / "tie_remaster/vr_stereo.h").read_text()))
-    write("xw_remaster/vr_stereo.c", rename((TIE / "tie_remaster/vr_stereo.c").read_text()))
+    for name in ("vr_draw.c", "vr_draw.h", "vr_font.h", "vr_radial_menu.h"):
+        text = rename(tie(f"tie_vr/{name}")).replace("tie_runtime/input/actions.h", "xw_runtime/input/actions.h")
+        text = text.replace("TieInputAction", "XwInputAction").replace("tie_vr.c", "xw_vr.c")
+        write(f"xw_vr/{name}", no_tie(text, name))
+    menu = apply(tie("tie_vr/vr_radial_menu.c"), RADIAL_COMMANDS, "vr_radial_menu.c")
+    for old, new in RADIAL_RENAMES:
+        menu = menu.replace(old, new)
+    write("xw_vr/vr_radial_menu.c", no_tie(rename(menu), "vr_radial_menu.c"))
+    write("xw_remaster/vr_stereo.h", no_tie(rename(tie("tie_remaster/vr_stereo.h")), "vr_stereo.h"))
+    write("xw_remaster/vr_stereo.c", no_tie(rename(tie("tie_remaster/vr_stereo.c")), "vr_stereo.c"))
 
 
 if __name__ == "__main__":
